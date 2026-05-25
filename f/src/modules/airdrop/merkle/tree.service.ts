@@ -1,45 +1,109 @@
 import { MerkleTree } from "merkletreejs";
 import keccak256 from "keccak256";
-import { hashLeaf } from "./hash.service";
+
+import {
+  hashLeaf,
+  normalizeWallet,
+} from "./hash.service";
+
+const DEFAULT_CHAIN_ID = 11155111;
 
 export interface AirdropEntry {
   wallet: string;
   amount: string | number | bigint;
 }
 
+export interface MerkleLeafNode {
+  wallet: string;
+  amount: string;
+  leaf: string;
+}
+
 export interface MerkleTreeResult {
   root: string;
   tree: MerkleTree;
-  leaves: { wallet: string; amount: string; leaf: string }[];
+  leaves: MerkleLeafNode[];
 }
 
 /**
- * 🌳 Pure Merkle Tree Builder
- * No DB side effects - takes entries, returns tree
+ * Validate duplicate wallets
+ */
+const validateUniqueWallets = (
+  entries: AirdropEntry[]
+) => {
+  const wallets =
+    new Set<string>();
+
+  for (const entry of entries) {
+    const normalized =
+      normalizeWallet(entry.wallet);
+
+    if (wallets.has(normalized)) {
+      throw new Error(
+        `Duplicate wallet detected: ${normalized}`
+      );
+    }
+
+    wallets.add(normalized);
+  }
+};
+
+/**
+ * 🌳 Build deterministic Merkle tree
  */
 export const buildMerkleTree = (
-  data: AirdropEntry[],
-  chainId: number = 11155111
+  entries: AirdropEntry[],
+  chainId: number = DEFAULT_CHAIN_ID
 ): MerkleTreeResult | null => {
-  if (data.length === 0) return null;
+  if (!entries.length) {
+    return null;
+  }
 
-  const leaves = data.map((entry) => {
-    const leaf = hashLeaf(entry.wallet, entry.amount, chainId);
-    return {
-      wallet: entry.wallet.toLowerCase(),
-      amount: BigInt(entry.amount).toString(),
-      leaf,
-    };
-  });
+  validateUniqueWallets(entries);
 
-  const leafHashes = leaves.map((l) => Buffer.from(l.leaf.slice(2), "hex"));
+  const leaves: MerkleLeafNode[] =
+    entries.map((entry) => {
+      const normalizedWallet =
+        normalizeWallet(entry.wallet);
 
-  const tree = new MerkleTree(leafHashes, keccak256, {
-    sortPairs: true,
-    hashLeaves: false, // We already hash leaves
-  });
+      const normalizedAmount =
+        BigInt(entry.amount).toString();
 
-  const root = "0x" + tree.getRoot().toString("hex");
+      const leaf =
+        hashLeaf(
+          normalizedWallet,
+          normalizedAmount,
+          chainId
+        );
+
+      return {
+        wallet: normalizedWallet,
+        amount: normalizedAmount,
+        leaf,
+      };
+    });
+
+  const leafBuffers =
+    leaves.map((leaf) =>
+      Buffer.from(
+        leaf.leaf.slice(2),
+        "hex"
+      )
+    );
+
+  const tree =
+    new MerkleTree(
+      leafBuffers,
+      keccak256,
+      {
+        sortPairs: true,
+        hashLeaves: false,
+      }
+    );
+
+  const root =
+    "0x" +
+    tree.getRoot().toString("hex");
 
   return {
     root,
@@ -49,20 +113,34 @@ export const buildMerkleTree = (
 };
 
 /**
- * Verify a Merkle proof
+ * Verify Merkle proof
  */
 export const verifyProof = (
   root: string,
   leaf: string,
   proof: string[]
 ): boolean => {
-  const leafBuffer = Buffer.from(leaf.slice(2), "hex");
-  const proofBuffers = proof.map((p) => Buffer.from(p.slice(2), "hex"));
+  const leafBuffer =
+    Buffer.from(
+      leaf.slice(2),
+      "hex"
+    );
+
+  const proofBuffers =
+    proof.map((p) =>
+      Buffer.from(
+        p.slice(2),
+        "hex"
+      )
+    );
 
   return MerkleTree.verify(
     proofBuffers,
     leafBuffer,
-    Buffer.from(root.slice(2), "hex"),
+    Buffer.from(
+      root.slice(2),
+      "hex"
+    ),
     keccak256,
     {
       sortPairs: true,

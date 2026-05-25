@@ -1,41 +1,40 @@
-import * as riskEngine from "../../user/risk/risk-engine.service";
-import * as verificationBot from "../verification/task-verification.bot";
-import * as rewardEngine from "../rewards/reward.service";
-import * as fraudDetector from "../../user/fraud/fraud-detector.service";
 import { prisma } from "../../../core/db/prisma";
+
+import * as riskEngine from "../../user/risk/risk-engine.service";
+
+import * as rewardEngine from "../rewards/reward.service";
+
+import * as fraudDetector from "../../user/fraud/fraud-detector.service";
+
 import { UserTaskStatus } from "@prisma/client";
 
 /**
- * ⚙️ Task Worker (Refactored)
- * 
- * Responsible ONLY for:
- * - Task verification
- * - Risk analysis
- * - Status updates
- * - Reward trigger (DB only)
- * 
- * REMOVED:
- * - processAirdrop calls
+ * ⚙️ Task Worker
+ *
+ * Responsibilities:
+ * - Validate task execution
+ * - Run risk analysis
+ * - Store task state
+ * - Trigger rewards
+ *
+ * NO:
+ * - Merkle generation
  * - Blockchain logic
- * - Merkle tree building
- * - Direct contract interactions
- * 
- * Architecture:
- * Task Worker → DB Points → Merkle Worker (separate batch)
+ * - Allocation calculations
  */
 
 export interface TaskExecutionResult {
   status: UserTaskStatus;
+
   riskScore: number;
+
   verified: boolean;
+
   rewardGiven?: boolean;
+
   points?: number;
 }
 
-/**
- * Process task execution
- * Pure off-chain operation
- */
 export const processTaskExecution = async (
   userId: string,
   taskId: string,
@@ -43,137 +42,216 @@ export const processTaskExecution = async (
   userAgent?: string,
   proof?: any
 ): Promise<TaskExecutionResult> => {
-  // 1. Fetch user and task
-  const [userRecord, taskRecord] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId } }),
-    prisma.task.findUnique({ where: { id: taskId } }),
-  ]);
+  const [user, task] =
+    await Promise.all([
+      prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      }),
 
-  if (!userRecord || !taskRecord) {
-    throw new Error("User or Task not found");
+      prisma.task.findUnique({
+        where: {
+          id: taskId,
+        },
+      }),
+    ]);
+
+  if (!user) {
+    throw new Error("User not found");
   }
 
-  // 2. Check for existing completion
-  const existingTask = await prisma.userTask.findUnique({
-    where: { userId_taskId: { userId, taskId } },
-  });
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  if (user.status !== "ACTIVE") {
+    throw new Error("User is not active");
+  }
+
+  const existingTask =
+    await prisma.userTask.findUnique({
+      where: {
+        userId_taskId: {
+          userId,
+          taskId,
+        },
+      },
+    });
 
   if (existingTask?.rewardGiven) {
-    return { status: UserTaskStatus.VERIFIED, riskScore: 0, verified: true };
+    return {
+      status: UserTaskStatus.VERIFIED,
+      verified: true,
+      rewardGiven: true,
+      riskScore: 0,
+      points: task.points,
+    };
   }
 
-  // 3. Risk Analysis
-  const riskResult = await riskEngine.analyzeRisk(userId, ip, userAgent);
-
-  await prisma.riskLog.create({
-    data: {
+  const riskResult =
+    await riskEngine.analyzeRisk(
       userId,
-      taskId,
-      score: riskResult.score,
-      reason: riskResult.reasons.join(", "),
       ip,
-      userAgent,
-      action: riskResult.action,
-    },
-  });
+      userAgent
+    );
 
   if (riskResult.action === "REJECT") {
-    throw new Error("Task rejected by Risk Engine");
+    throw new Error(
+      "Task rejected by risk engine"
+    );
   }
 
-  // 4. Verification (actual verification)
-  const isVerified = await verificationBot.verifyTaskExecution(
-    taskRecord,
-    proof
-  );
-
-  // 5. Determine final status
   let finalStatus: UserTaskStatus;
 
   if (riskResult.action === "REVIEW") {
-    finalStatus = UserTaskStatus.REVIEW;
-  } else if (isVerified) {
-    finalStatus = UserTaskStatus.VERIFIED;
+    finalStatus =
+      UserTaskStatus.REVIEW;
   } else {
-    finalStatus = UserTaskStatus.REVIEW;
+    finalStatus =
+      UserTaskStatus.VERIFIED;
   }
 
-  // 6. Save/update task record
-  const userTask = await prisma.userTask.upsert({
-    where: { userId_taskId: { userId, taskId } },
-    update: {
-      status: finalStatus,
-      ip,
-      userAgent,
-      metadata: proof ?? {},
-      completedAt: new Date(),
-    },
-    create: {
-      userId,
-      taskId,
-      status: finalStatus,
-      ip,
-      userAgent,
-      metadata: proof ?? {},
-      rewardGiven: false,
-      completedAt: new Date(),
-    },
-  });
+  const userTask =
+    await prisma.userTask.upsert({
+      where: {
+        userId_taskId: {
+          userId,
+          taskId,
+        },
+      },
 
-  // 7. Distribute reward ONLY if VERIFIED and not already given
-  let rewardResult;
-  if (finalStatus === UserTaskStatus.VERIFIED && !userTask.rewardGiven) {
-    rewardResult = await rewardEngine.distributeReward(userId, taskId);
+      update: {
+        status: finalStatus,
+
+        ip,
+
+        userAgent,
+
+        metadata: proof ?? {},
+
+        completedAt: new Date(),
+      },
+
+      create: {
+        userId,
+
+        taskId,
+
+        status: finalStatus,
+
+        rewardGiven: false,
+
+        ip,
+
+        userAgent,
+
+        metadata: proof ?? {},
+
+        completedAt: new Date(),
+      },
+    });
+
+  let rewardResult:
+    | Awaited<
+        ReturnType<
+          typeof rewardEngine.distributeReward
+        >
+      >
+    | undefined;
+
+  if (
+    finalStatus ===
+      UserTaskStatus.VERIFIED &&
+    !userTask.rewardGiven
+  ) {
+    rewardResult =
+      await rewardEngine.distributeReward(
+        userId,
+        taskId
+      );
   }
 
-  // 8. Fraud analysis (async, non-blocking)
-  fraudDetector.analyzeFraudPatterns(userId).catch(console.error);
+  fraudDetector
+    .analyzeFraudPatterns(userId)
+    .catch(console.error);
 
   return {
     status: finalStatus,
+
     riskScore: riskResult.score,
-    verified: isVerified,
-    rewardGiven: rewardResult?.success,
-    points: rewardResult?.points,
+
+    verified:
+      finalStatus ===
+      UserTaskStatus.VERIFIED,
+
+    rewardGiven:
+      rewardResult?.success,
+
+    points:
+      rewardResult?.points,
   };
 };
 
-/**
- * Process review approval (admin action)
- */
-export const processReviewApproval = async (
-  userTaskId: string
-): Promise<TaskExecutionResult> => {
-  const userTask = await prisma.userTask.findUnique({
-    where: { id: userTaskId },
-    include: { task: true },
-  });
+export const processReviewApproval =
+  async (
+    userTaskId: string
+  ): Promise<TaskExecutionResult> => {
+    const userTask =
+      await prisma.userTask.findUnique({
+        where: {
+          id: userTaskId,
+        },
 
-  if (!userTask) {
-    throw new Error("User task not found");
-  }
+        include: {
+          task: true,
+        },
+      });
 
-  if (userTask.status !== UserTaskStatus.REVIEW) {
-    throw new Error("Task is not in review status");
-  }
+    if (!userTask) {
+      throw new Error(
+        "Task record not found"
+      );
+    }
 
-  // Update to verified
-  await prisma.userTask.update({
-    where: { id: userTaskId },
-    data: { status: UserTaskStatus.VERIFIED },
-  });
+    if (
+      userTask.status !==
+      UserTaskStatus.REVIEW
+    ) {
+      throw new Error(
+        "Task is not under review"
+      );
+    }
 
-  // Distribute reward
-  const rewardResult = await rewardEngine.distributeReward(
-    userTask.userId,
-    userTask.taskId
-  );
+    await prisma.userTask.update({
+      where: {
+        id: userTask.id,
+      },
 
-  return {
-    status: UserTaskStatus.VERIFIED,
-    riskScore: 0,
-    verified: true,
-    rewardGiven: rewardResult.success,
-    points: rewardResult.points,
+      data: {
+        status:
+          UserTaskStatus.VERIFIED,
+      },
+    });
+
+    const rewardResult =
+      await rewardEngine.distributeReward(
+        userTask.userId,
+        userTask.taskId
+      );
+
+    return {
+      status:
+        UserTaskStatus.VERIFIED,
+
+      verified: true,
+
+      rewardGiven:
+        rewardResult.success,
+
+      riskScore: 0,
+
+      points:
+        rewardResult.points,
+    };
   };
-};

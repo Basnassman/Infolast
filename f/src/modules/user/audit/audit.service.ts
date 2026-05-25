@@ -1,33 +1,71 @@
 import { prisma } from "../../../core/db/prisma";
 
 /**
- * 📝 Log an action to the audit log
+ * 📝 Audit Logger
+ *
+ * New architecture:
+ * - Uses UserAuditLog
+ * - userId references actual User.id
+ * - No wallet-based audit relation
  */
-export const logAction = async (data: {
+
+export interface AuditLogInput {
+  userId: string;
   action: string;
-  userId?: string;
-  txHash?: string;
-  ip?: string;
   metadata?: any;
-}) => {
-  await prisma.auditLog.create({
+}
+
+/**
+ * Create audit log
+ */
+export const logAction = async (
+  data: AuditLogInput
+) => {
+  return prisma.userAuditLog.create({
     data: {
+      userId: data.userId,
       action: data.action,
-      userId: data.userId?.toLowerCase(),
-      txHash: data.txHash,
-      ip: data.ip,
-      metadata: data.metadata || {},
+      metadata: data.metadata ?? {},
     },
   });
 };
 
 /**
- * 📊 Get audit logs for a user
+ * Get audit logs by user ID
  */
-export const getUserAuditLogs = async (wallet: string, limit: number = 50) => {
-  return prisma.auditLog.findMany({
-    where: { userId: wallet.toLowerCase() },
-    orderBy: { createdAt: "desc" },
+export const getUserAuditLogs = async (
+  userId: string,
+  limit: number = 50
+) => {
+  return prisma.userAuditLog.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
     take: limit,
+  });
+};
+
+/**
+ * Get latest audit events
+ */
+export const getLatestAuditLogs = async (
+  limit: number = 100
+) => {
+  return prisma.userAuditLog.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: limit,
+    include: {
+      user: {
+        select: {
+          walletAddress: true,
+          status: true,
+        },
+      },
+    },
   });
 };

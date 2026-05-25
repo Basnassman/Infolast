@@ -41,10 +41,19 @@ export const buildFullMerkleTree = async () => {
     return null;
   }
 
-  const entries = eligibleUsers.map((u) => ({
-    wallet: u.wallet.toLowerCase(),
-    amount: u.airdropAllocatedWei,
-  }));
+  const entries =
+  eligibleUsers.map(
+    (participant) => ({
+      userId:
+        participant.userId,
+
+      wallet:
+        participant.user.wallet.toLowerCase(),
+
+      amount:
+        participant.allocationWei,
+    })
+  );
 
   const treeResult = buildMerkleTree(entries, CHAIN_ID);
 
@@ -63,7 +72,11 @@ export const buildFullMerkleTree = async () => {
  * Save all proofs to DB
  */
 export const saveAllProofs = async (
-  entries: { wallet: string; amount: string }[],
+  entries: {
+  userId: string;
+  wallet: string;
+  amount: string;
+}[]
   root: string
 ) => {
   const proofs =
@@ -71,25 +84,42 @@ export const saveAllProofs = async (
 
   const operations = [];
 
-  for (const [wallet, proofData] of proofs.entries()) {
-    operations.push(
-      prisma.userMerkleProof.upsert({
-        where: {
-          wallet,
-        },
-        update: {
-          merkleProof: proofData.proof,
-          merkleLeaf: proofData.leaf,
-          chainId: CHAIN_ID,
-        },
-        create: {
-          wallet,
-          merkleProof: proofData.proof,
-          merkleLeaf: proofData.leaf,
-        },
-      })
-    );
-  }
+  for (const entry of entries) {
+    const proofData =
+  proofs.get(
+    entry.wallet
+  );
+      await prisma.userMerkleProof.upsert({
+  where: {
+    userId: entry.userId,
+  },
+
+  update: {
+    merkleProof:
+      proofData?.proof || [],
+
+    merkleLeaf:
+      proofData?.leaf || null,
+
+    merkleRoot: root,
+
+    chainId: CHAIN_ID,
+  },
+
+  create: {
+    userId: entry.userId,
+
+    merkleProof:
+      proofData?.proof || [],
+
+    merkleLeaf:
+      proofData?.leaf || null,
+
+    merkleRoot: root,
+
+    chainId: CHAIN_ID,
+  },
+});
 
   await prisma.$transaction(operations);
 

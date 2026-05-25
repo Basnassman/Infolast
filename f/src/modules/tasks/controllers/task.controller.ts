@@ -1,96 +1,190 @@
-// src/controllers/task.controller.ts
 import { Request, Response } from "express";
+
 import { prisma } from "../../../core/db/prisma";
+
 import { processTaskExecution } from "../workers/task-worker";
+
 import { getOrCreateUser } from "../../user/utils/user";
 
-export const listTasks = async (req: Request, res: Response) => {
+/**
+ * 📋 List active tasks
+ */
+export const listTasks = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const tasks = await prisma.task.findMany({
-      where: { isActive: true },
-      orderBy: { points: 'desc' }
-    });
+    const tasks =
+      await prisma.task.findMany({
+        where: {
+          isActive: true,
+        },
 
-    res.json(tasks);
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+        orderBy: {
+          points: "desc",
+        },
+      });
+
+    return res.json({
+      success: true,
+      tasks,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 
-export const completeTask = async (req: Request, res: Response) => {
+/**
+ * ✅ Complete task
+ */
+export const completeTask = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const { wallet, taskId, proof } = req.body;
+    const {
+      wallet,
+      taskId,
+      proof,
+    } = req.body;
 
     if (!wallet || !taskId) {
-      return res.status(400).json({ error: "wallet and taskId are required" });
+      return res.status(400).json({
+        success: false,
+        error:
+          "wallet and taskId are required",
+      });
     }
 
-    const ip = req.ip || "0.0.0.0";
-    const userAgent = req.get("User-Agent");
+    const normalizedWallet =
+      wallet.toLowerCase();
 
-    const user = await getOrCreateUser(wallet);
+    const ip =
+      req.ip || "0.0.0.0";
 
-    if (user.isBlocked) {
-      return res.status(403).json({ error: "User is blocked" });
+    const userAgent =
+      req.get("User-Agent") || undefined;
+
+    const user =
+      await getOrCreateUser(
+        normalizedWallet
+      );
+
+    if (user.status !== "ACTIVE") {
+      return res.status(403).json({
+        success: false,
+        error:
+          "User is not active",
+      });
     }
 
-    const result = await processTaskExecution(
-      user.id,
-      taskId,
-      ip,
-      userAgent,
-      proof
+    const result =
+      await processTaskExecution(
+        user.id,
+        taskId,
+        ip,
+        userAgent,
+        proof
+      );
+
+    return res.json({
+      success: true,
+
+      status: result.status,
+
+      verified:
+        result.verified,
+
+      rewardGiven:
+        result.rewardGiven,
+
+      points:
+        result.points,
+
+      riskScore:
+        result.riskScore,
+    });
+  } catch (error: any) {
+    console.error(
+      "[TaskController]",
+      error
     );
 
-    res.json({
-      success: true,
-      status: result.status,
-      riskScore: result.riskScore,
-      verified: result.verified
-    });
-
-  } catch (err: any) {
-    console.error("completeTask error:", err);
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
-      error: err.message
+      error: error.message,
     });
   }
 };
 
-export const getStatus = async (req: Request, res: Response) => {
+/**
+ * 📊 Get user task status
+ */
+export const getStatus = async (
+  req: Request,
+  res: Response
+) => {
   try {
-    const { wallet } = req.query;
+    const wallet =
+      req.query.wallet;
 
-    if (!wallet || typeof wallet !== "string") {
-      return res.status(400).json({ error: "wallet is required" });
+    if (
+      !wallet ||
+      typeof wallet !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "wallet is required",
+      });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { wallet: wallet.toLowerCase() },
-      include: {
-        userTasks: {
-          include: { task: true }
-        }
-      }
-    });
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          walletAddress:
+            wallet.toLowerCase(),
+        },
+
+        include: {
+          userTasks: {
+            include: {
+              task: true,
+            },
+
+            orderBy: {
+              completedAt: "desc",
+            },
+          },
+        },
+      });
 
     if (!user) {
-      return res.json([]);
+      return res.json({
+        success: true,
+        tasks: [],
+      });
     }
 
-    res.json(user.userTasks);
-
-  } catch (err: any) {
-    res.status(500).json({
+    return res.json({
+      success: true,
+      tasks: user.userTasks,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
       success: false,
-      error: err.message
+      error: error.message,
     });
   }
 };
 
 export const tasksController = {
   listTasks,
+
   completeTask,
+
   getStatus,
 };

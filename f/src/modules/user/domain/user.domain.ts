@@ -1,103 +1,252 @@
+import {
+  DistributionType,
+  RiskLevel,
+  UserStatus,
+} from "@prisma/client";
+
+/**
+ * =====================================================
+ * USER DOMAIN TYPES
+ * =====================================================
+ */
+
 export type UserDomain = {
-  wallet: string;
-  totalBought: number;
-  airdropPoints: number;
-  tokensAllocated: string;     // بالـ FOR (للعرض)
-  tokensAllocatedWei: string;  // ← بالـ wei (للعقد)
-  tokensBought: string;        // بالـ FOR
-  tokensBoughtWei: string;     // ← بالـ wei   // بالـ FOR
-  category: string;            // AIRDROP_ONLY, AIRDROP_BUYER, BUYER_ONLY, NONE
-  tier: string;               // BRONZE, SILVER, GOLD, PLATINUM
-  hasClaimedAirdrop: boolean;
-  hasClaimedTokens: boolean;
+  id: string;
+
+  walletAddress: string;
+
+  email?: string | null;
+
+  username?: string | null;
+
+  status: UserStatus;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  // ---------------------------------
+  // Airdrop
+  // ---------------------------------
+
+  airdrop?: {
+    participantId: string;
+
+    points: number;
+
+    allocationWei: string;
+
+    isEligible: boolean;
+
+    lastCalculatedAt?: Date | null;
+  } | null;
+
+  // ---------------------------------
+  // Purchases
+  // ---------------------------------
+
+  purchases: {
+    totalSpentUsd: number;
+
+    totalTokenReceivedWei: string;
+
+    totalPurchases: number;
+  };
+
+  // ---------------------------------
+  // Vesting
+  // ---------------------------------
+
+  vesting: {
+    totalVestedWei: string;
+
+    totalReleasedWei: string;
+
+    totalClaimableWei: string;
+  };
+
+  // ---------------------------------
+  // Risk
+  // ---------------------------------
+
+  risk?: {
+    level: RiskLevel;
+
+    score: number;
+
+    isSybilSuspected: boolean;
+  } | null;
 };
 
 export type UserMerkleData = {
-  wallet: string;
+  distributionType: DistributionType;
+
+  merkleRoot: string;
 
   merkleProof: string[];
 
-  chainId: number;
+  leaf: string;
 
-  merkleLeaf: string | null;
+  amountWei: string;
 
-  merkleRoot: string;
+  createdAt: Date;
 };
 
-export type UserVestingView = {
-  vestedTokens: string;
+export type UserSummary = {
+  walletAddress: string;
 
-  claimableTokens: string;
+  status: UserStatus;
+
+  powerScore: number;
+
+  totalTokenBalanceWei: string;
+
+  airdrop: {
+    eligible: boolean;
+
+    points: number;
+
+    allocationWei: string;
+  } | null;
+
+  purchases: {
+    totalSpentUsd: number;
+
+    totalTokenReceivedWei: string;
+
+    totalPurchases: number;
+  };
+
+  vesting: {
+    totalVestedWei: string;
+
+    totalReleasedWei: string;
+
+    totalClaimableWei: string;
+  };
+
+  risk: {
+    level: RiskLevel;
+
+    score: number;
+
+    isSybilSuspected: boolean;
+  } | null;
 };
 
 /**
- * ✅ Check if user is eligible for airdrop
+ * =====================================================
+ * DOMAIN HELPERS
+ * =====================================================
  */
-export const isEligibleForAirdrop = (user: UserDomain): boolean => {
-  return (
-    user.airdropPoints > 0 &&
-    BigInt(user.tokensAllocatedWei || "0") > 0n &&
-    !user.category?.includes("BLOCKED")
+
+/**
+ * Check if user can participate in airdrop
+ */
+export const isEligibleForAirdrop = (
+  user: UserDomain
+): boolean => {
+  return Boolean(
+    user.status === UserStatus.ACTIVE &&
+      user.airdrop &&
+      user.airdrop.isEligible &&
+      BigInt(
+        user.airdrop.allocationWei || "0"
+      ) > 0n
   );
 };
 
 /**
- * 🧮 Calculate user power score
+ * Calculate user power score
  */
-export const calculateUserPower = (user: UserDomain): number => {
-  return user.totalBought + user.airdropPoints;
+export const calculateUserPower = (
+  user: UserDomain
+): number => {
+  const points =
+    user.airdrop?.points || 0;
+
+  const spent =
+    user.purchases.totalSpentUsd;
+
+  return points + spent * 10;
 };
 
 /**
- * 💰 Calculate total tokens (allocated + bought)
+ * Calculate total token balance
  */
-export const calculateTotalTokens = (user: UserDomain): string => {
-  const allocated = BigInt(user.tokensAllocatedWei || "0");
-  const bought = BigInt(user.tokensBoughtWei || "0");
-  return (allocated + bought).toString();
+export const calculateTotalTokensWei = (
+  user: UserDomain
+): string => {
+  const airdrop =
+    BigInt(
+      user.airdrop?.allocationWei || "0"
+    );
+
+  const purchased =
+    BigInt(
+      user.purchases
+        .totalTokenReceivedWei || "0"
+    );
+
+  const vested =
+    BigInt(
+      user.vesting.totalVestedWei || "0"
+    );
+
+  return (
+    airdrop +
+    purchased +
+    vested
+  ).toString();
 };
 
 /**
- * 📊 Get user summary
+ * Build user summary object
  */
 export const getUserSummary = (
-  user: UserDomain,
-  vesting: UserVestingView,
-  merkle: UserMerkleData
-) => {
-  const totalTokens =
-    calculateTotalTokens(user);
-
-  const power =
-    calculateUserPower(user);
-
+  user: UserDomain
+): UserSummary => {
   return {
-    wallet: user.wallet,
+    walletAddress:
+      user.walletAddress,
 
-    category: user.category,
+    status: user.status,
 
-    tier: user.tier,
+    powerScore:
+      calculateUserPower(user),
 
-    power,
+    totalTokenBalanceWei:
+      calculateTotalTokensWei(user),
 
-    totalTokens,
-    airdrop: {
-      points: user.airdropPoints,
-      tokens: user.tokensAllocated,
-      tokensWei: user.tokensAllocatedWei,
-      merkleProof: merkle.merkleProof,
-      merkleLeaf: merkle.merkleLeaf,
-      claimed: user.hasClaimedAirdrop,
-    },
-    purchase: {
-      totalBought: user.totalBought,
-      tokens: user.tokensBought,
-      tokensWei: user.tokensBoughtWei,
-    },
-    vesting: {
-      vested: vesting.vestedTokens,
-      claimable:vesting.claimableTokens,
-    },
-    chainId: merkle.chainId,
+    airdrop: user.airdrop
+      ? {
+          eligible:
+            user.airdrop.isEligible,
+
+          points:
+            user.airdrop.points,
+
+          allocationWei:
+            user.airdrop.allocationWei,
+        }
+      : null,
+
+    purchases: user.purchases,
+
+    vesting: user.vesting,
+
+    risk: user.risk
+      ? {
+          level:
+            user.risk.level,
+
+          score:
+            user.risk.score,
+
+          isSybilSuspected:
+            user.risk
+              .isSybilSuspected,
+        }
+      : null,
   };
 };

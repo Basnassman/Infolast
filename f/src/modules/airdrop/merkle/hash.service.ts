@@ -1,45 +1,80 @@
 import keccak256 from "keccak256";
 import { ethers } from "ethers";
 
+const DEFAULT_CHAIN_ID = 11155111;
+
 /**
  * 🔐 Pure Merkle Hash Utilities
- * No DB side effects - pure functions only
+ * Deterministic + EVM compatible
  */
 
 /**
- * Hash a leaf for the Merkle tree
- * Matches Airdrop.sol: keccak256(abi.encodePacked(msg.sender, amount, block.chainid))
+ * Normalize wallet address
+ * Uses EIP-55 checksum format
+ */
+export const normalizeWallet = (
+  wallet: string
+): string => {
+  return ethers.getAddress(wallet);
+};
+
+/**
+ * Hash a Merkle leaf
+ *
+ * Solidity equivalent:
+ * keccak256(
+ *   abi.encodePacked(
+ *     wallet,
+ *     amount,
+ *     chainId
+ *   )
+ * )
  */
 export const hashLeaf = (
   wallet: string,
   amount: string | number | bigint,
-  chainId: number = 11155111
+  chainId: number = DEFAULT_CHAIN_ID
 ): string => {
-  const amountBigInt = BigInt(amount);
+  const normalizedWallet =
+    normalizeWallet(wallet);
 
-  const packed = ethers.solidityPacked(
-    ["address", "uint256", "uint256"],
-    [wallet, amountBigInt, chainId]
+  const amountBigInt =
+    BigInt(amount);
+
+  const packed =
+    ethers.solidityPacked(
+      ["address", "uint256", "uint256"],
+      [
+        normalizedWallet,
+        amountBigInt,
+        chainId,
+      ]
+    );
+
+  return (
+    "0x" +
+    keccak256(packed).toString("hex")
   );
-
-  return "0x" + keccak256(packed).toString("hex");
 };
 
 /**
- * Hash two nodes together
+ * Hash two Merkle nodes
  */
-export const hashPair = (a: string, b: string): string => {
-  const sorted = [a, b].sort();
-  const packed = ethers.solidityPacked(
-    ["bytes32", "bytes32"],
-    [sorted[0], sorted[1]]
-  );
-  return "0x" + keccak256(packed).toString("hex");
-};
+export const hashPair = (
+  a: string,
+  b: string
+): string => {
+  const sorted =
+    [a, b].sort();
 
-/**
- * Normalize wallet address for consistent hashing
- */
-export const normalizeWallet = (wallet: string): string => {
-  return wallet.toLowerCase();
+  const packed =
+    ethers.solidityPacked(
+      ["bytes32", "bytes32"],
+      [sorted[0], sorted[1]]
+    );
+
+  return (
+    "0x" +
+    keccak256(packed).toString("hex")
+  );
 };

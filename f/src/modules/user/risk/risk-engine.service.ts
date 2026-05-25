@@ -1,61 +1,229 @@
 import { prisma } from "../../../core/db/prisma";
+import {
+  RiskLevel,
+  UserStatus,
+} from "@prisma/client";
 
 export interface RiskResult {
   score: number;
+
+  level: RiskLevel;
+
   reasons: string[];
-  action: "ALLOW" | "REVIEW" | "REJECT";
+
+  action:
+    | "ALLOW"
+    | "REVIEW"
+    | "REJECT";
 }
 
 /**
- * 🧠 Risk Engine Service
+ * =====================================================
+ * RISK ENGINE
+ * =====================================================
  */
-export const analyzeRisk = async (userId: string, ip: string, userAgent?: string): Promise<RiskResult> => {
+
+export const analyzeRisk = async (
+  userId: string,
+  ip: string,
+  userAgent?: string
+): Promise<RiskResult> => {
   let score = 0;
+
   const reasons: string[] = [];
 
-  // 1. IP Multi-wallet Detection
-  const ipUsage = await prisma.user.count({
-    where: { 
-      lastIp: ip, 
-      NOT: { id: userId } 
-    }
-  });
-  if (ipUsage > 2) {
-    score += 40;
-    reasons.push("Multiple wallets detected on same IP");
+  // =====================================
+  // Load user
+  // =====================================
+
+  const user =
+    await prisma.user.findUnique({
+      where: { id: userId },
+
+      include: {
+        purchases: true,
+        airdropParticipant: true,
+      },
+    });
+
+  if (!user) {
+    throw new Error(
+      "User not found"
+    );
   }
 
-  // 2. Velocity Check
-  const recentTasksCount = await prisma.userTask.count({
-    where: { 
-      userId: userId, 
-      completedAt: { gte: new Date(Date.now() - 60000) } 
-    }
-  });
-  if (recentTasksCount > 3) {
+  // =====================================
+  // Blocked users
+  // =====================================
+
+  if (
+    user.status ===
+      UserStatus.BLOCKED ||
+    user.status ===
+      UserStatus.SUSPENDED
+  ) {
+    return {
+      score: 100,
+
+      level:
+        RiskLevel.CRITICAL,
+
+      reasons: [
+        "Blocked or suspended user",
+      ],
+
+      action: "REJECT",
+    };
+  }
+
+  // =====================================
+  // New wallet check
+  // =====================================
+
+  const accountAgeMs =
+    Date.now() -
+    user.createdAt.getTime();
+
+  if (
+    accountAgeMs <
+    1000 * 60 * 60
+  ) {
+    score += 10;
+
+    reasons.push(
+      "New wallet account"
+    );
+  }
+
+  // =====================================
+  // Suspicious user-agent
+  // =====================================
+
+  if (
+    !userAgent ||
+    userAgent.includes(
+      "Headless"
+    ) ||
+    userAgent.includes("bot")
+  ) {
+    score += 25;
+
+    reasons.push(
+      "Suspicious user agent"
+    );
+  }
+
+  // =====================================
+  // Excessive purchases
+  // =====================================
+
+  const recentPurchases =
+    await prisma.purchase.count({
+      where: {
+        userId,
+
+        createdAt: {
+          gte: new Date(
+            Date.now() -
+              60 * 1000
+          ),
+        },
+      },
+    });
+
+  if (recentPurchases > 5) {
     score += 20;
-    reasons.push("High task completion velocity");
+
+    reasons.push(
+      "High purchase velocity"
+    );
   }
 
-  // 3. New Wallet Check
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (user) {
-    const isNewWallet = (Date.now() - user.createdAt.getTime() < 3600000);
-    if (isNewWallet) {
-      score += 10;
-      reasons.push("New wallet account");
-    }
+  // =====================================
+  // Abnormal airdrop farming
+  // =====================================
+
+  if (
+    user.airdropParticipant &&
+    user.airdropParticipant
+      .points > 100000
+  ) {
+    score += 35;
+
+    reasons.push(
+      "Suspicious airdrop activity"
+    );
   }
 
-  // 4. Suspicious User-Agent
-  if (userAgent?.includes("Headless") || !userAgent) {
-    score += 30;
-    reasons.push("Suspicious browser/user-agent");
+  // =====================================
+  // Determine risk level
+  // =====================================
+
+  let level =
+    RiskLevel.LOW;
+
+  let action:
+    | "ALLOW"
+    | "REVIEW"
+    | "REJECT" = "ALLOW";
+
+  if (score >= 80) {
+    level =
+      RiskLevel.CRITICAL;
+
+    action = "REJECT";
+  } else if (score >= 50) {
+    level =
+      RiskLevel.HIGH;
+
+    action = "REVIEW";
+  } else if (score >= 25) {
+    level =
+      RiskLevel.MEDIUM;
+
+    action = "REVIEW";
   }
 
-  let action: "ALLOW" | "REVIEW" | "REJECT" = "ALLOW";
-  if (score > 70) action = "REJECT";
-  else if (score >= 30) action = "REVIEW";
+  // =====================================
+  // Persist profile
+  // =====================================
 
-  return { score, reasons, action };
+  await prisma.userRiskProfile.upsert({
+    where: {
+      userId,
+    },
+
+    update: {
+      riskLevel: level,
+
+      riskScore: score,
+
+      notes:
+        reasons.join(" | "),
+
+      reviewedAt:
+        new Date(),
+    },
+
+    create: {
+      userId,
+
+      riskLevel: level,
+
+      riskScore: score,
+
+      notes:
+        reasons.join(" | "),
+
+      reviewedAt:
+        new Date(),
+    },
+  });
+
+  return {
+    score,
+    level,
+    reasons,
+    action,
+  };
 };
