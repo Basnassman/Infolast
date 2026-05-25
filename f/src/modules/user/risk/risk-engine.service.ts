@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 
 export interface RiskResult {
   score: number;

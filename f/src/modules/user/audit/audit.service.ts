@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 
 /**
  * 📝 Log an action to the audit log

@@ -1,4 +1,4 @@
-import { prisma } from "../core/db/prisma";
+import { prisma } from "../../../core/db/prisma";
 import { batchUpdateAllocations } from "../services/allocation.service";
 import { syncMerkleDistribution } from "../services/contract-sync.service";
 

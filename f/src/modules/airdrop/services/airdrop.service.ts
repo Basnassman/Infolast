@@ -1,7 +1,7 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 import { UserCategory } from "@prisma/client";
 import { getClaimStatus } from "./claim.service";
-import { getSyncStatus } from "./merkle-sync.service";
+import { getSyncStatus } from "./contract-sync.service";
 
 /**
  * 🪂 Airdrop Service (Refactored)

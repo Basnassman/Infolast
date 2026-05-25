@@ -1,8 +1,8 @@
-import * as riskEngine from "../services/risk-engine.service";
-import * as verificationBot from "../services/task-verification.bot";
-import * as rewardEngine from "../services/reward.service";
-import * as fraudDetector from "../services/fraud-detector.service";
-import { prisma } from "../db/prisma";
+import * as riskEngine from "../../user/risk/risk-engine.service";
+import * as verificationBot from "../verification/task-verification.bot";
+import * as rewardEngine from "../rewards/reward.service";
+import * as fraudDetector from "../../user/fraud/fraud-detector.service";
+import { prisma } from "../../../core/db/prisma";
 import { UserTaskStatus } from "@prisma/client";
 
 /**

@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 import { calculateAirdrop } from "../engine/airdrop.rules";
 
 const DECIMALS = 18;

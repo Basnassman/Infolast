@@ -1,6 +1,6 @@
 import { buildMerkleTree, MerkleTreeResult } from "../merkle/tree.service";
 import { ProofResult } from "../merkle/proof.service";
-import { prisma } from "../core/db/prisma";
+import { prisma } from "../../../core/db/prisma";
 
 const CHAIN_ID = 11155111; // Sepolia
 

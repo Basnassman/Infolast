@@ -1,15 +1,15 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 import { buildMerkleTree } from "../merkle/tree.service";
 import { generateAllProofs } from "../merkle/proof.service";
 import {
     airdropContractRead,
       airdropContractWrite,
         setMerkleRoot,
-        } from "../blockchain/airdrop.contract";
+        } from "../../../core/blockchain/airdrop.contract";
 import { getEligibleUsers } from "./allocation.service";
 import {
   wallet,
-} from "../blockchain/provider";
+} from "../../../core/blockchain/provider";
 
 const CHAIN_ID = 11155111;
 

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getAirdropEligibility, getAirdropStats } from "../services/airdrop.service";
 import { validateClaim, recordClaim, getClaimStatus } from "../services/claim.service";
-import { prisma } from "../db/prisma";
+import { prisma } from "../../../core/db/prisma";
 
 /**
  * 🪂 Airdrop Controller (Refactored)

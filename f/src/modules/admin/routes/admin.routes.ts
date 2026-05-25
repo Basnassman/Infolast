@@ -4,7 +4,7 @@ import { adminController } from "../controllers/admin.controller";
 const router = Router();
 
 // Simple admin auth middleware (replace with your actual roles middleware)
-import { requireGov } from "../middleware/roles";
+import { requireGov } from "../../../core/middleware/roles";
 
 // ── Tasks ──
 router.get("/tasks", requireGov, adminController.listAllTasks);

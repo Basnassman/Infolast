@@ -1,7 +1,7 @@
-import { prisma } from "../db/prisma";
-import { airdropContractRead } from "../blockchain/airdrop.contract";
+import { prisma } from "../../../core/db/prisma";
+import { airdropContractRead } from "../../../core/blockchain/airdrop.contract";
 import { verifyProof } from "../merkle/tree.service";
-import { getSyncStatus } from "./merkle-sync.service";
+import { getSyncStatus } from "./contract-sync.service";
 
 /**
  * 🎯 Claim Service

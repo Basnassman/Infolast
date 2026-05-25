@@ -1,5 +1,5 @@
-import { prisma } from "../db/prisma";
-import { getUserVesting, getVestingConstants } from "../blockchain/vesting.contract";
+import { prisma } from "../../../core/db/prisma";
+import { getUserVesting, getVestingConstants } from "../../../core/blockchain/vesting.contract";
 import { calculateUnlocked, calculateVested, getVestingProgress, getNextUnlock } from "../domain/vesting.domain";
 
 const DECIMALS = 18;

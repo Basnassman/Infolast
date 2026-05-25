@@ -1,5 +1,5 @@
 import { CronJob } from "cron";
-import { cronRebuild } from "../modules/airdrop/workers/rebuild.worker";
+import { cronRebuild } from "../../modules/airdrop/workers/rebuild.worker";
 
 /**
  * 🕐 Cron Scheduler

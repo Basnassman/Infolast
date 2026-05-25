@@ -1,5 +1,5 @@
 {
-  "name": "info",
+  "name": "infov",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,19 @@
     "postinstall": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  
+
+    "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ahmad4664/Infov.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Ahmad4664/Infov/issues"
+  },
+   "homepage": "https://github.com/Ahmad4664/Infov#readme",
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.19.3",

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { ethers } from "ethers";
-import { airdropContractRead } from "../blockchain/airdrop.contract";
+import { airdropContractRead } from "../../../core/blockchain/airdrop.contract";
 
 const router = Router();
 

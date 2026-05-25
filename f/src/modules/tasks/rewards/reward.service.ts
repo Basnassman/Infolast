@@ -1,5 +1,5 @@
-import { prisma } from "../db/prisma";
-import { calculateUserAllocation } from "./allocation.service";
+import { prisma } from "../../../core/db/prisma";
+import { calculateUserAllocation } from "../../airdrop//services/allocation.service";
 
 /**
  * 💰 Reward Engine (Refactored)
