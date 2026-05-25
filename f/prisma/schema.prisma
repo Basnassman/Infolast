@@ -1,0 +1,434 @@
+// =====================================================
+// DATABASE
+// =====================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// ENUMS
+// =====================================================
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  SUSPENDED
+}
+
+enum DistributionType {
+  AIRDROP
+  VESTING
+  PURCHASE
+  STAKING
+  REFERRAL
+}
+
+enum MerkleJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ClaimStatus {
+  PENDING
+  CLAIMED
+  FAILED
+}
+
+enum PurchaseSource {
+  PUBLIC
+  PRIVATE
+  OTC
+}
+
+enum PaymentAsset {
+  ETH
+  USDT
+  USDC
+  BNB
+  MATIC
+}
+
+enum VestingSource {
+  AIRDROP
+  PRESALE
+  TEAM
+  ADVISOR
+  INVESTOR
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// =====================================================
+// USER DOMAIN
+// =====================================================
+
+model User {
+  id                    String      @id @default(cuid())
+
+  walletAddress         String      @unique
+
+  email                 String?
+  username              String?
+
+  status                UserStatus  @default(ACTIVE)
+
+  lastLoginAt           DateTime?
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  // Relations
+  tags                  UserTag[]
+
+  airdropParticipant    AirdropParticipant?
+
+  purchases             Purchase[]
+
+  vestingSchedules      VestingSchedule[]
+
+  claims                DistributionClaim[]
+
+  riskProfile           UserRiskProfile?
+
+  audits                UserAuditLog[]
+}
+
+model UserTag {
+  id              String   @id @default(cuid())
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tag             String
+
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, tag])
+  @@index([tag])
+}
+
+model UserRiskProfile {
+  id                  String      @id @default(cuid())
+
+  userId              String      @unique
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  riskLevel           RiskLevel   @default(LOW)
+
+  riskScore           Int         @default(0)
+
+  isSybilSuspected    Boolean     @default(false)
+
+  notes               String?
+
+  reviewedAt          DateTime?
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model UserAuditLog {
+  id                String      @id @default(cuid())
+
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action            String
+
+  metadata          Json?
+
+  createdAt         DateTime    @default(now())
+
+  @@index([userId])
+}
+
+// =====================================================
+// AIRDROP DOMAIN
+// =====================================================
+
+model AirdropParticipant {
+  id                        String      @id @default(cuid())
+
+  userId                    String      @unique
+  user                      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  points                    Int         @default(0)
+
+  allocationWei             String      @default("0")
+
+  isEligible                Boolean     @default(true)
+
+  airdropDirty              Boolean     @default(false)
+
+  lastCalculatedAt          DateTime?
+
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+
+  proofs                    MerkleProof[]
+
+  claims                    DistributionClaim[]
+
+  @@index([airdropDirty])
+  @@index([isEligible])
+}
+
+model MerkleRoot {
+  id                      String              @id @default(cuid())
+
+  distributionType        DistributionType
+
+  root                    String              @unique
+
+  ipfsSnapshotUrl         String?
+
+  eligibleCount           Int
+
+  totalAmountWei          String
+
+  txHash                  String?
+
+  isActive                Boolean             @default(true)
+
+  createdAt               DateTime            @default(now())
+
+  proofs                  MerkleProof[]
+
+  jobs                    MerkleJob[]
+
+  @@index([distributionType])
+  @@index([createdAt])
+}
+
+model MerkleProof {
+  id                        String                @id @default(cuid())
+
+  merkleRootId              String
+  merkleRoot                MerkleRoot            @relation(fields: [merkleRootId], references: [id], onDelete: Cascade)
+
+  airdropParticipantId      String?
+  airdropParticipant        AirdropParticipant?   @relation(fields: [airdropParticipantId], references: [id], onDelete: Cascade)
+
+  walletAddress             String
+
+  proof                     Json
+
+  leaf                      String
+
+  amountWei                 String
+
+  createdAt                 DateTime              @default(now())
+
+  @@index([walletAddress])
+  @@index([merkleRootId])
+}
+
+model MerkleJob {
+  id                    String              @id @default(cuid())
+
+  distributionType      DistributionType
+
+  status                MerkleJobStatus
+
+  merkleRootId          String?
+  merkleRoot            MerkleRoot?        @relation(fields: [merkleRootId], references: [id])
+
+  txHash                String?
+
+  eligibleCount         Int?
+
+  totalAmountWei        String?
+
+  error                 String?
+
+  startedAt             DateTime?
+  completedAt           DateTime?
+
+  createdAt             DateTime            @default(now())
+
+  @@index([status])
+  @@index([distributionType])
+}
+
+// =====================================================
+// CLAIMS DOMAIN
+// =====================================================
+
+model DistributionClaim {
+  id                        String                @id @default(cuid())
+
+  userId                    String
+  user                      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  distributionType          DistributionType
+
+  airdropParticipantId      String?
+  airdropParticipant        AirdropParticipant?   @relation(fields: [airdropParticipantId], references: [id])
+
+  vestingScheduleId         String?
+  vestingSchedule           VestingSchedule?      @relation(fields: [vestingScheduleId], references: [id])
+
+  amountWei                 String
+
+  txHash                    String?
+
+  status                    ClaimStatus           @default(PENDING)
+
+  claimedAt                 DateTime?
+
+  createdAt                 DateTime              @default(now())
+
+  @@index([userId])
+  @@index([distributionType])
+}
+
+// =====================================================
+// VESTING DOMAIN
+// =====================================================
+
+model VestingSchedule {
+  id                        String                @id @default(cuid())
+
+  userId                    String
+  user                      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  source                    VestingSource
+
+  totalAmountWei            String
+
+  releasedAmountWei         String                @default("0")
+
+  startTime                 DateTime
+
+  cliffTime                 DateTime
+
+  endTime                   DateTime
+
+  revoked                   Boolean               @default(false)
+
+  revokable                 Boolean               @default(false)
+
+  vestingDirty              Boolean               @default(false)
+
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+
+  releases                  VestingRelease[]
+
+  claims                    DistributionClaim[]
+
+  @@index([vestingDirty])
+  @@index([source])
+}
+
+model VestingRelease {
+  id                        String              @id @default(cuid())
+
+  vestingScheduleId         String
+  vestingSchedule           VestingSchedule    @relation(fields: [vestingScheduleId], references: [id], onDelete: Cascade)
+
+  amountWei                 String
+
+  txHash                    String?
+
+  releasedAt                DateTime           @default(now())
+
+  @@index([vestingScheduleId])
+}
+
+// =====================================================
+// PURCHASE DOMAIN
+// =====================================================
+
+model Purchase {
+  id                        String              @id @default(cuid())
+
+  userId                    String
+  user                      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  source                    PurchaseSource
+
+  paymentAsset              PaymentAsset
+
+  paymentAmount             Decimal             @db.Decimal(36, 18)
+
+  paymentAmountWei          String
+
+  tokenReceived             Decimal             @db.Decimal(36, 18)
+
+  tokenReceivedWei          String
+
+  tokenPriceUsd             Decimal?            @db.Decimal(36, 18)
+
+  chainId                   Int
+
+  txHash                    String              @unique
+
+  blockNumber               BigInt?
+
+  purchaseDirty             Boolean             @default(false)
+
+  metadata                  Json?
+
+  createdAt                 DateTime            @default(now())
+
+  @@index([userId])
+  @@index([paymentAsset])
+  @@index([source])
+}
+
+// =====================================================
+// DISTRIBUTION SNAPSHOTS
+// =====================================================
+
+model DistributionSnapshot {
+  id                        String              @id @default(cuid())
+
+  distributionType          DistributionType
+
+  snapshotVersion           Int
+
+  totalUsers                Int
+
+  totalAmountWei            String
+
+  metadata                  Json?
+
+  createdAt                 DateTime            @default(now())
+
+  @@unique([distributionType, snapshotVersion])
+}
+
+// =====================================================
+// QUEUE EVENTS
+// =====================================================
+
+model QueueEvent {
+  id                        String              @id @default(cuid())
+
+  type                      String
+
+  payload                   Json
+
+  processed                 Boolean             @default(false)
+
+  processedAt               DateTime?
+
+  createdAt                 DateTime            @default(now())
+
+  @@index([processed])
+  @@index([type])
+}
