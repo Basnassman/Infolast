@@ -1,136 +1,175 @@
-import { Request, Response } from "express";
-import { getAirdropEligibility, getAirdropStats } from "../services/airdrop.service";
-import { validateClaim, recordClaim, getClaimStatus } from "../services/claim.service";
-import { prisma } from "../../../core/db/prisma";
+import {
+  Request,
+  Response,
+} from "express";
 
-/**
- * 🪂 Airdrop Controller (Refactored)
- * Uses separated services:
- * - airdrop.service: eligibility queries
- * - claim.service: claim validation & recording
- */
+import {
+  getAirdropEligibility,
+  getAirdropStats,
+} from "../services/airdrop.service";
 
-/**
- * GET /airdrop/eligibility/:wallet
- * Check if user is eligible for airdrop
- */
-export const checkEligibility = async (req: Request, res: Response) => {
-  try {
-    const walletParam = req.params.wallet as string;
-    if (!walletParam || typeof walletParam !== "string") {
-      return res.status(400).json({ error: "Wallet address required" });
-    }
+import {
+  recordClaim,
+  getClaimStatus,
+} from "../services/claim.service";
 
-    const result = await getAirdropEligibility(walletParam);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+import {
+  validateClaim,
+} from "../services/claim-validation.service";
 
-/**
- * POST /airdrop/claim
- * Record a claim after on-chain transaction
- */
-export const recordAirdropClaim = async (req: Request, res: Response) => {
-  try {
-    const { wallet, txHash, amountWei } = req.body;
+import {
+  getActiveMerkleRoot,
+  getProofByWallet,
+} from "../repositories/claim.repository";
 
-    if (!wallet || !txHash) {
-      return res.status(400).json({ error: "Wallet and txHash required" });
-    }
+export const checkEligibility =
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const wallet =
+        String(
+          req.params.wallet
+        ).toLowerCase();
 
-    // Validate claim first
-    const validation = await validateClaim(wallet);
-    if (!validation.valid) {
-      return res.status(400).json({
-        error: validation.reason || "Claim validation failed",
+      const result =
+        await getAirdropEligibility(
+          wallet
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(500).json({
+        error:
+          error.message,
       });
     }
+  };
 
-    // Record the claim
-    const result = await recordClaim(wallet, txHash, amountWei);
+export const getProofHandler =
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const wallet =
+        String(
+          req.query.wallet
+        ).toLowerCase();
 
-    res.json({
-      success: true,
-      user: result,
-      amountWei: validation.amountWei,
-    });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-};
+      const activeRoot =
+        await getActiveMerkleRoot();
 
-/**
- * GET /airdrop/stats
- * Get airdrop statistics
- */
-export const getStats = async (req: Request, res: Response) => {
-  try {
-    const stats = await getAirdropStats();
-    res.json(stats);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+      if (!activeRoot) {
+        return res.status(404).json({
+          error:
+            "No active root",
+        });
+      }
 
-/**
- * GET /airdrop/claim-status/:wallet
- * Get claim status for a user
- */
-export const getClaimStatusHandler = async (req: Request, res: Response) => {
-  try {
-    const walletParam = req.params.wallet as string;
-    if (!walletParam || typeof walletParam !== "string") {
-      return res.status(400).json({ error: "Wallet address required" });
-    }
+      const proof =
+        await getProofByWallet(
+          activeRoot.id,
+          wallet
+        );
 
-    const result = await getClaimStatus(walletParam);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+      if (!proof) {
+        return res.status(404).json({
+          error:
+            "Proof not found",
+        });
+      }
 
-  export const getProofHandler = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const wallet =
-      String(req.query.wallet || "").toLowerCase();
-
-    if (!wallet) {
-      return res.status(400).json({
-        error: "Wallet is required",
+      return res.json(proof);
+    } catch (error: any) {
+      return res.status(500).json({
+        error:
+          error.message,
       });
     }
+  };
 
-    const user = await prisma.user.findUnique({
-      where: { wallet },
-      select: {
-        wallet: true,
-        merkleProof: true,
-        airdropAllocatedWei: true,
-        merkleLeaf: true,
-      },
-    });
+export const recordAirdropClaim =
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const {
+        walletAddress,
+        txHash,
+      } = req.body;
 
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found",
+      const validation =
+        await validateClaim(
+          walletAddress
+        );
+
+      if (!validation.valid) {
+        return res.status(400).json({
+          error:
+            validation.reason,
+        });
+      }
+
+      const result =
+        await recordClaim(
+          walletAddress,
+          txHash
+        );
+
+      return res.json({
+        success: true,
+        claim: result,
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        error:
+          error.message,
       });
     }
+  };
 
-    return res.json({
-      wallet: user.wallet,
-      amount: user.airdropAllocatedWei,
-      proof: user.merkleProof || [],
-      leaf: user.merkleLeaf,
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      error: error.message,
-    });
-  }
-};
+export const getClaimStatusHandler =
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const wallet =
+        String(
+          req.params.wallet
+        ).toLowerCase();
+
+      const result =
+        await getClaimStatus(
+          wallet
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(500).json({
+        error:
+          error.message,
+      });
+    }
+  };
+
+export const getStats =
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const stats =
+        await getAirdropStats();
+
+      return res.json(stats);
+    } catch (error: any) {
+      return res.status(500).json({
+        error:
+          error.message,
+      });
+    }
+  };
