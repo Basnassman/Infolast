@@ -1,6 +1,6 @@
-import { prisma } from "../db/prisma";
+import { prisma } from "@core/db/prisma";
 
-import { redis } from "../cache/redis";
+import { redis } from "@core/cache/redis";
 
 export const healthCheck =
   async () => {

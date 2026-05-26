@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import {
   provider,
   config,
-} from "../provider";
+} from "@core/blockchain/provider";
 
-import AirdropABI from "../../abis/Airdrop.json";
+import AirdropABI from "@core/abis/Airdrop";
 
 export const airdropReadContract =
   new ethers.Contract(

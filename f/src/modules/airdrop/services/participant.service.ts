@@ -3,7 +3,7 @@ import {
 } from "@prisma/client";
 
 import * as participantRepository
-  from "../repositories/participant.repository";
+  from "@modules/airdrop/repositories/participant.repository";
 
 export const getEligibleParticipants =
   async () => {

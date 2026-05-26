@@ -1,15 +1,4 @@
-export type ErrorCode =
-  | "VALIDATION_ERROR"
-  | "UNAUTHORIZED"
-  | "FORBIDDEN"
-  | "NOT_FOUND"
-  | "CONFLICT"
-  | "RATE_LIMITED"
-  | "BLOCKED"
-  | "INACTIVE"
-  | "INVALID_PROOF"
-  | "ALREADY_CLAIMED"
-  | "INTERNAL_ERROR";
+export type ErrorCode = string;
 
 export type ApiError = {
   success: false;

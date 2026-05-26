@@ -1,4 +1,4 @@
-import { wallet } from "./provider";
+import { wallet } from "@core/blockchain/provider";
 
 let nonceCache:
   | number

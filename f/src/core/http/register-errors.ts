@@ -4,7 +4,7 @@ import {
 
 import {
   globalErrorMiddleware,
-} from "../middleware/global-error.middleware";
+} from "@core/api/middleware/global-error.middleware";
 
 export const registerErrors = (
   app: Express

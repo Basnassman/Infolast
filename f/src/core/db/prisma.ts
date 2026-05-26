@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-import { withExtensions } from "./prisma-extensions";
+import { withExtensions } from "@core/db/prisma-extensions";
 
 declare global {
   // eslint-disable-next-line no-var

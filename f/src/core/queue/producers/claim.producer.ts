@@ -1,4 +1,4 @@
-import { claimQueue } from "../queue";
+import { claimQueue } from "@core/queue/queue";
 
 export const enqueueClaim =
   async (

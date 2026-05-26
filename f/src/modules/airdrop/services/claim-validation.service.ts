@@ -2,16 +2,16 @@ import {
   UserStatus,
 } from "@prisma/client";
 
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 
 import {
   getActiveMerkleRoot,
   getProofByWallet,
-} from "../repositories/claim.repository";
+} from "@modules/airdrop/repositories/claim.repository";
 
 import {
   verifyProof,
-} from "../merkle/tree.service";
+} from "@modules/airdrop/merkle/tree.service";
 
 export interface ClaimValidationResult {
   valid: boolean;

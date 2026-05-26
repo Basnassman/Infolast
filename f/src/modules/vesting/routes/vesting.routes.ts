@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { vestingController } from "../controllers/vesting.controller";
+import { vestingController } from "@modules/vesting/controllers/vesting.controller";
 
 const router = Router();
 

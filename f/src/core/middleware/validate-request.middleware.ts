@@ -11,7 +11,7 @@ import {
 
 import {
   ApiError,
-} from "../contracts/error.contract";
+} from "@core/contracts-api/error.contract";
 
 export const validateRequest =
   <T>(
@@ -23,66 +23,37 @@ export const validateRequest =
       next: NextFunction
     ) => {
       try {
-        req.body =
-          schema.parse(
-            req.body
-          );
+        req.body = schema.parse(req.body);
 
         next();
       } catch (error) {
-        if (
-          error instanceof
-          z.ZodError
-        ) {
-          const response: ApiError =
-            {
-              success: false,
-
-              error: {
-                code:
-                  "VALIDATION_ERROR",
-
-                message:
-                  error.errors
-                    .map(
-                      (
-                        issue
-                      ) =>
-                        `${issue.path.join(
-                          "."
-                        )}: ${issue.message}`
-                    )
-                    .join(
-                      ", "
-                    ),
-              },
-            };
-
-          return res
-            .status(400)
-            .json(
-              response
-            );
-        }
-
-        const response: ApiError =
-          {
+        if (error instanceof z.ZodError) {
+          const response: ApiError = {
             success: false,
 
             error: {
-              code:
-                "INVALID_REQUEST",
+              code: "VALIDATION_ERROR",
 
-              message:
-                "Invalid request payload",
+              message: error.issues
+                .map((issue: any) => `${issue.path.join(".")}: ${issue.message}`)
+                .join(", "),
             },
           };
 
-        return res
-          .status(400)
-          .json(
-            response
-          );
+          return res.status(400).json(response);
+        }
+
+        const response: ApiError = {
+          success: false,
+
+          error: {
+            code: "INVALID_REQUEST",
+
+            message: "Invalid request payload",
+          },
+        };
+
+        return res.status(400).json(response);
       }
     };
   };

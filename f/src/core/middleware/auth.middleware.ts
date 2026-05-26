@@ -6,11 +6,11 @@ import {
 
 import {
   authenticateWallet,
-} from "../auth/wallet-auth.service";
+} from "@core/auth/wallet-auth.service";
 
 import {
   ApiError,
-} from "../contracts/error.contract";
+} from "@core/contracts-api/error.contract";
 
 declare global {
   namespace Express {

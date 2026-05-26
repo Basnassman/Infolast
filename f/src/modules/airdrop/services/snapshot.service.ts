@@ -2,9 +2,9 @@ import {
   DistributionType,
 } from "@prisma/client";
 
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 
-import { participantRepository } from "../repositories/participant.repository";
+import { participantRepository } from "@modules/airdrop/repositories/participant.repository";
 
 export const createAirdropSnapshot =
   async () => {

@@ -1,4 +1,4 @@
-import { rebuildQueue } from "../queue";
+import { rebuildQueue } from "@core/queue/queue";
 
 export const enqueueRebuild =
   async () => {

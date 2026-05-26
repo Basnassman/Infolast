@@ -3,25 +3,25 @@ import { Router } from "express";
 import {
   requireAdmin,
   requireGov,
-} from "../../../core/middleware/role.middleware";
+} from "@core/middleware/role.middleware";
 
 import {
-  authenticateWallet,
-} from "../../../core/middleware/auth.middleware";
+  authenticate,
+} from "@core/middleware/auth.middleware";
 
 import {
-  adminRateLimit,
-} from "../../../core/middleware/rate-limit.middleware";
+  rateLimit,
+} from "@core/middleware/rate-limit.middleware";
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
-  rebuildMerkleTree,
-  getMerkleJobs,
-  getSystemStats,
-} from "../controllers/admin.controller";
+  rebuildMerkleController,
+  getMerkleJobsController,
+  getLatestRootController,
+} from "@modules/admin/controllers/admin.controller";
 
 const router = Router();
 
@@ -29,8 +29,8 @@ const router = Router();
  * All admin routes require auth
  */
 router.use(
-  adminRateLimit,
-  authenticateWallet
+  rateLimit({ windowMs: 60000, maxRequests: 30 }),
+  authenticate
 );
 
 /**
@@ -41,9 +41,7 @@ router.get(
 
   requireAdmin,
 
-  asyncHandler(
-    getSystemStats
-  )
+  asyncHandler(getLatestRootController)
 );
 
 /**
@@ -54,9 +52,7 @@ router.get(
 
   requireGov,
 
-  asyncHandler(
-    getMerkleJobs
-  )
+  asyncHandler(getMerkleJobsController)
 );
 
 /**
@@ -67,9 +63,7 @@ router.post(
 
   requireGov,
 
-  asyncHandler(
-    rebuildMerkleTree
-  )
+  asyncHandler(rebuildMerkleController)
 );
 
 export default router;

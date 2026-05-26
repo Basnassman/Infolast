@@ -1,11 +1,11 @@
 import {
   provider,
-} from "../../../core/blockchain/provider";
+} from "@core/blockchain/provider";
 
 import {
   markClaimCompleted,
   markClaimFailed,
-} from "../repositories/claim.repository";
+} from "@modules/airdrop/repositories/claim.repository";
 
 export const syncClaimTransaction =
   async (

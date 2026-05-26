@@ -1,6 +1,6 @@
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 import { UserCategory } from "@prisma/client";
-import { syncUserCategory } from "../../airdrop/services/airdrop.service";
+import { syncUserCategory } from "@modules/airdrop/services/airdrop.service";
 
 const DECIMALS = 18;
 

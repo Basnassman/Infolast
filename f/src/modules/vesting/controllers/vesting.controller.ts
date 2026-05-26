@@ -3,7 +3,7 @@ import {
   recordVestingClaim,
   getUserVestingStatus,
   getUserVestingClaims,
-} from "../services/vesting.service";
+} from "@modules/vesting/services/vesting.service";
 
 /**
  * POST /api/vesting/claim

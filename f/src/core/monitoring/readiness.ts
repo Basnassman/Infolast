@@ -3,7 +3,7 @@ import {
   Response,
 } from "express";
 
-import { healthCheck } from "./health-check";
+import { healthCheck } from "@core/monitoring/health-check";
 
 export const readinessHandler =
   async (

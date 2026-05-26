@@ -5,9 +5,9 @@ import express, {
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import { requestIdMiddleware } from "../middleware/request-id.middleware";
+import { requestIdMiddleware } from "@core/logger/request-id.middleware";
 
-import { requestLogger } from "../logger/request-logger.middleware";
+import { requestLogger } from "@core/logger/request-logger.middleware";
 
 export const registerMiddlewares = (
   app: Express

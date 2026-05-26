@@ -1,15 +1,15 @@
 import {
   buildMerkleTree,
   AirdropMerkleEntry,
-} from "../merkle/tree.service";
+} from "@modules/airdrop/merkle/tree.service";
 
 import {
   generateAllProofs,
-} from "../merkle/proof.service";
+} from "@modules/airdrop/merkle/proof.service";
 
 import {
   AirdropParticipantWithUser,
-} from "../domain/airdrop.types";
+} from "@modules/airdrop/domain/airdrop.types";
 
 const CHAIN_ID = 11155111;
 

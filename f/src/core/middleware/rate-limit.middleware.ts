@@ -6,7 +6,7 @@ import {
 
 import {
   ApiError,
-} from "../contracts/error.contract";
+} from "@core/contracts-api/error.contract";
 
 export interface RateLimitOptions {
   windowMs: number;

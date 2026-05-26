@@ -2,13 +2,13 @@ import {
   Express,
 } from "express";
 
-import authRoutes from "../../modules/auth/routes/auth.routes";
+import authRoutes from "@modules/auth/routes/auth.routes";
 
-import airdropRoutes from "../../modules/airdrop/routes/airdrop.routes";
+import airdropRoutes from "@modules/airdrop/routes/airdrop.routes";
 
-import adminRoutes from "../../modules/admin/routes/admin.routes";
+import adminRoutes from "@modules/admin/routes/admin.routes";
 
-import taskRoutes from "../../modules/tasks/routes/task.routes";
+import taskRoutes from "@modules/tasks/routes/task.routes";
 
 export const registerRoutes = (
   app: Express

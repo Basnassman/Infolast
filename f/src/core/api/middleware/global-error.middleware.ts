@@ -14,35 +14,35 @@ import {
 
 import {
   AppError,
-} from "../errors/app.error";
+} from "@core/api/exceptions/app.error";
 
 import {
   ValidationError,
-} from "../errors/validation.error";
+} from "@core/api/exceptions/validation.error";
 
 import {
   ConflictError,
-} from "../errors/conflict.error";
+} from "@core/api/exceptions/conflict.error";
 
 import {
   NotFoundError,
-} from "../errors/not-found.error";
+} from "@core/api/exceptions/not-found.error";
 
 import {
   UnauthorizedError,
-} from "../errors/unauthorized.error";
+} from "@core/api/exceptions/unauthorized.error";
 
 import {
   ForbiddenError,
-} from "../errors/forbidden.error";
+} from "@core/api/exceptions/forbidden.error";
 
 import {
   BlockchainError,
-} from "../errors/blockchain.error";
+} from "@core/api/exceptions/blockchain.error";
 
 import {
-  buildErrorResponse,
-} from "../responses/error.response";
+  errorResponse,
+} from "@core/api/responses/error.response";
 
 const isProduction =
   process.env.NODE_ENV === "production";
@@ -79,17 +79,11 @@ const mapPrismaError = (
 const mapZodError = (
   error: ZodError
 ): ValidationError => {
-  const message =
-    error.errors
-      .map(
-        (e) =>
-          `${e.path.join(".")}: ${e.message}`
-      )
-      .join(", ");
+  const message = error.issues
+    .map((e: any) => `${e.path.join(".")}: ${e.message}`)
+    .join(", ");
 
-  return new ValidationError(
-    message || "Validation failed"
-  );
+  return new ValidationError(message || "Validation failed");
 };
 
 /**
@@ -182,22 +176,11 @@ export const globalErrorMiddleware = (
     );
   }
 
-  return res
-    .status(
-      normalizedError.statusCode
-    )
-    .json(
-      buildErrorResponse({
-        code:
-          normalizedError.code,
-
-        message:
-          normalizedError.message,
-
-        details:
-          !isProduction
-            ? normalizedError.stack
-            : undefined,
-      })
-    );
+  return errorResponse(
+    res,
+    normalizedError.code,
+    normalizedError.message,
+    normalizedError.statusCode,
+    !isProduction ? normalizedError.stack : undefined
+  );
 };

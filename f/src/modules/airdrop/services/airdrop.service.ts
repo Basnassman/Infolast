@@ -1,6 +1,6 @@
 import {
   prisma,
-} from "../../../core/db/prisma";
+} from "@core/db/prisma";
 
 import {
   DistributionType,
@@ -9,7 +9,7 @@ import {
 
 import {
   getClaimStatus,
-} from "./claim.service";
+} from "@modules/airdrop/services/claim.service";
 
 export const getAirdropEligibility =
   async (

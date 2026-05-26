@@ -1,12 +1,12 @@
 import {
   hashLeaf,
   normalizeWallet,
-} from "./hash.service";
+} from "@modules/airdrop/merkle/hash.service";
 
 import {
   buildMerkleTree,
   AirdropEntry,
-} from "./tree.service";
+} from "@modules/airdrop/merkle/tree.service";
 
 const DEFAULT_CHAIN_ID = 11155111;
 

@@ -1,4 +1,4 @@
-import { redis } from "./redis";
+import { redis } from "@core/cache/redis";
 
 export const cacheService = {
   async get<T>(

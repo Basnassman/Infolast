@@ -3,15 +3,15 @@ import {
 } from "@prisma/client";
 
 import { prisma }
-  from "../../../core/db/prisma";
+  from "@core/db/prisma";
 
 import {
   updateParticipantAllocation,
-} from "./participant.service";
+} from "@modules/airdrop/services/participant.service";
 
 import {
   AllocationResult,
-} from "../domain/airdrop.types";
+} from "@modules/airdrop/domain/airdrop.types";
 
 const DECIMALS = 18;
 

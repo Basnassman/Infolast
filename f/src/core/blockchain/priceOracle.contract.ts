@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { wallet, provider, config } from "./provider";
-import PriceOracleABI from "../abis/PriceOracle.json";
+import { wallet, provider, config } from "@core/blockchain/provider";
+import PriceOracleABI from "@core/abis/PriceOracle";
 
 // Read-only contract
 export const priceOracleRead = new ethers.Contract(

@@ -1,4 +1,4 @@
-import { redis } from "../cache/redis";
+import { redis } from "@core/cache/redis";
 
 export const distributedLockService =
   {

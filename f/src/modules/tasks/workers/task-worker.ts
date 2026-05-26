@@ -1,10 +1,10 @@
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 
-import * as riskEngine from "../../user/risk/risk-engine.service";
+import * as riskEngine from "@modules/user/risk/risk-engine.service";
 
-import * as rewardEngine from "../rewards/reward.service";
+import * as rewardEngine from "@modules/tasks/rewards/reward.service";
 
-import * as fraudDetector from "../../user/fraud/fraud-detector.service";
+import * as fraudDetector from "@modules/user/fraud/fraud-detector.service";
 
 import { UserTaskStatus } from "@prisma/client";
 

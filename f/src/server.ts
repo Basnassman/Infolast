@@ -1,8 +1,8 @@
-import app from "./app";
+import app from "@src/app";
 
 import {
   env,
-} from "./core/config/env";
+} from "@core/config/env";
 
 const server =
   app.listen(

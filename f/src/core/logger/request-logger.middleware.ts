@@ -4,7 +4,7 @@ import {
   NextFunction,
 } from "express";
 
-import { logger } from "./logger";
+import { logger } from "@core/logger/logger";
 
 export const requestLogger =
   (

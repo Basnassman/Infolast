@@ -1,4 +1,4 @@
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 
 import {
   DistributionType,
@@ -7,32 +7,32 @@ import {
 
 import {
   recalculateAllocations,
-} from "../services/allocation.service";
+} from "@modules/airdrop/services/allocation.service";
 
 import {
   getEligibleParticipants,
-} from "../services/participant.service";
+} from "@modules/airdrop/services/participant.service";
 
 import {
   buildMerkleSnapshot,
-} from "../services/merkle-builder.service";
+} from "@modules/airdrop/services/merkle-builder.service";
 
 import {
   pushMerkleRoot,
-} from "../services/merkle-sync.service";
+} from "@modules/airdrop/services/merkle-sync.service";
 
 import {
   isRebuildNeeded,
-} from "../services/rebuild-check.service";
+} from "@modules/airdrop/services/rebuild-check.service";
 
 import {
   createMerkleRoot,
   updateMerkleRootTxHash,
-} from "../repositories/merkle-root.repository";
+} from "@modules/airdrop/repositories/merkle-root.repository";
 
 import {
   saveMerkleProofs,
-} from "../repositories/merkle-proof.repository";
+} from "@modules/airdrop/repositories/merkle-proof.repository";
 
 export interface RebuildResult {
   success: boolean;

@@ -2,11 +2,11 @@ import { Worker } from "bullmq";
 
 import IORedis from "ioredis";
 
-import { rebuildAndSync } from "../../../modules/airdrop/workers/rebuild.worker";
+import { rebuildAndSync } from "@modules/airdrop/workers/rebuild.worker";
 
-import { logger } from "../../logger/logger";
+import { logger } from "@core/logger/logger";
 
-import { env } from "../../config/env";
+import { env } from "@core/config/env";
 
 const connection =
   new IORedis(

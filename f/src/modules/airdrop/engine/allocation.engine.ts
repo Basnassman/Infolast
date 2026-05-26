@@ -2,7 +2,7 @@ import { parseUnits, formatUnits } from "ethers";
 import {
   AllocationInput,
   AllocationResult,
-} from "../domain/airdrop.types";
+} from "@modules/airdrop/domain/airdrop.types";
 
 const DECIMALS = 18;
 

@@ -7,11 +7,11 @@ import {
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
-  buildSuccessResponse,
-} from "../../../core/responses/success.response";
+  successResponse,
+} from "@core/api/responses/success.response";
 
 import {
   normalizeTask,
@@ -41,7 +41,7 @@ export const getTasksController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           tasks.map(normalizeTask)
         )
       );
@@ -60,7 +60,7 @@ export const submitTaskController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeTaskSubmission(
             result
           )
@@ -86,7 +86,7 @@ export const getTaskHistoryController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           history.map(
             normalizeTaskSubmission
           )

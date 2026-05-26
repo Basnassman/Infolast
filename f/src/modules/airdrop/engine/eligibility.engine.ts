@@ -1,7 +1,7 @@
 import {
   AllocationResult,
   EligibilityResult,
-} from "../domain/airdrop.types";
+} from "@modules/airdrop/domain/airdrop.types";
 
 export const evaluateEligibility = (
   allocation: AllocationResult

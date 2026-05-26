@@ -1,4 +1,4 @@
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 import { DistributionType } from "@prisma/client";
 
 export const createMerkleRoot = async (data: {

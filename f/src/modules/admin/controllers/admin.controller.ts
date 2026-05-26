@@ -7,23 +7,23 @@ import {
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
-  buildSuccessResponse,
-} from "../../../core/responses/success.response";
+  successResponse,
+} from "@core/api/responses/success.response";
 
 import {
   normalizeMerkleRoot,
-} from "../../airdrop/normalizers/merkle.normalizer";
+} from "@core/api/normalizers/merkle.normalizer";
 
 import {
   rebuildAndSync,
-} from "../../airdrop/workers/rebuild.worker";
+} from "@modules/airdrop/workers/rebuild.worker";
 
 import {
-  getLatestMerkleRoot,
-} from "../../airdrop/repositories/merkle-root.repository";
+  getActiveMerkleRoot,
+} from "@modules/airdrop/repositories/merkle-root.repository";
 
 import {
   getMerkleJobs,
@@ -39,7 +39,7 @@ export const rebuildMerkleController =
         await rebuildAndSync();
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeMerkleRoot(
             result
           )
@@ -54,11 +54,10 @@ export const getLatestRootController =
       _req: Request,
       res: Response
     ) => {
-      const root =
-        await getLatestMerkleRoot();
+      const root = await getActiveMerkleRoot();
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeMerkleRoot(
             root
           )
@@ -77,7 +76,7 @@ export const getMerkleJobsController =
         await getMerkleJobs();
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           jobs
         )
       );

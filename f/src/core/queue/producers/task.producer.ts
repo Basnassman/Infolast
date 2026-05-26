@@ -1,4 +1,4 @@
-import { taskQueue } from "../queue";
+import { taskQueue } from "@core/queue/queue";
 
 export const enqueueTaskVerification =
   async (

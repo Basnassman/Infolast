@@ -7,38 +7,38 @@ import {
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
-  buildSuccessResponse,
-} from "../../../core/responses/success.response";
+  successResponse,
+} from "@core/api/responses/success.response";
 
 import {
   normalizeClaim,
-} from "../normalizers/claim.normalizer";
+} from "@core/api/normalizers/claim.normalizer";
 
 import {
   normalizeMerkleProof,
   normalizeMerkleRoot,
-} from "../normalizers/merkle.normalizer";
+} from "@core/api/normalizers/merkle.normalizer";
 
 import {
   normalizeParticipant,
-} from "../normalizers/participant.normalizer";
+} from "@core/api/normalizers/participant.normalizer";
 
 import {
   getAirdropEligibility,
   getAirdropStats,
-} from "../services/airdrop.service";
+} from "@modules/airdrop/services/airdrop.service";
 
 import {
   claimAirdrop,
   getClaimStatus,
-} from "../services/claim.service";
+} from "@modules/airdrop/services/claim.service";
 
 import {
   getMerkleProofByWallet,
-} from "../repositories/merkle-proof.repository";
+} from "@modules/airdrop/repositories/merkle-proof.repository";
 
 export const getEligibilityController =
   asyncHandler(
@@ -57,7 +57,7 @@ export const getEligibilityController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeParticipant(
             eligibility
           )
@@ -78,7 +78,7 @@ export const claimAirdropController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeClaim(claim)
         )
       );
@@ -102,7 +102,7 @@ export const getClaimStatusController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeClaim(status)
         )
       );
@@ -126,7 +126,7 @@ export const getMerkleProofController =
         );
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeMerkleProof(
             proof
           )
@@ -145,7 +145,7 @@ export const getAirdropStatsController =
         await getAirdropStats();
 
       return res.json(
-        buildSuccessResponse(
+        successResponse(
           normalizeMerkleRoot(
             stats
           )

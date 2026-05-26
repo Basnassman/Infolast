@@ -1,7 +1,7 @@
 import {
   airdropContractRead,
   setMerkleRoot,
-} from "../../../core/blockchain/airdrop.contract";
+} from "@core/blockchain/airdrop.contract";
 
 export const getCurrentMerkleRoot =
   async (): Promise<string> => {

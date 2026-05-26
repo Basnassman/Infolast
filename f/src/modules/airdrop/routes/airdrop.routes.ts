@@ -2,19 +2,19 @@ import { Router } from "express";
 
 import {
   authenticateWallet,
-} from "../../../core/middleware/auth.middleware";
+} from "@core/middleware/auth.middleware";
 
 import {
   walletRateLimit,
-} from "../../../core/middleware/rate-limit.middleware";
+} from "@core/middleware/rate-limit.middleware";
 
 import {
   validateRequest,
-} from "../../../core/middleware/validate-request.middleware";
+} from "@core/middleware/validate-request.middleware";
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
   checkEligibility,
@@ -22,19 +22,19 @@ import {
   claimAirdrop,
   getClaimStatus,
   getAirdropStats,
-} from "../controllers/airdrop.controller";
+} from "@modules/airdrop/controllers/airdrop.controller";
 
 import {
   eligibilitySchema,
-} from "../dto/eligibility.dto";
+} from "@modules/airdrop/dto/eligibility.dto";
 
 import {
   proofSchema,
-} from "../dto/proof.dto";
+} from "@modules/airdrop/dto/proof.dto";
 
 import {
   claimAirdropSchema,
-} from "../dto/claim-airdrop.dto";
+} from "@modules/airdrop/dto/claim-airdrop.dto";
 
 const router = Router();
 

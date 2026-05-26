@@ -1,16 +1,16 @@
 import {
   createClaim,
-} from "../repositories/claim.repository";
+} from "@modules/airdrop/repositories/claim.repository";
 
 import {
   validateClaim,
-} from "./claim-validation.service";
+} from "@modules/airdrop/services/claim-validation.service";
 
 import {
   syncClaimTransaction,
-} from "./claim-sync.service";
+} from "@modules/airdrop/services/claim-sync.service";
 
-import { prisma } from "../../../core/db/prisma";
+import { prisma } from "@core/db/prisma";
 
 export const getClaimStatus =
   async (

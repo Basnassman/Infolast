@@ -3,7 +3,7 @@ import {
   recordPurchase, 
   recordPurchaseClaim,
   getUserFullStatus 
-} from "../services/purchase.service";
+} from "@modules/purchase/services/purchase.service";
 
 /**
  * POST /api/purchase/webhook

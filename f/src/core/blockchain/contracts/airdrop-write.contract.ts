@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import {
   wallet,
   config,
-} from "../provider";
+} from "@core/blockchain/provider";
 
-import AirdropABI from "../../abis/Airdrop.json";
+import AirdropABI from "@core/abis/Airdrop";
 
 if (!wallet) {
   throw new Error(

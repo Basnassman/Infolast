@@ -4,7 +4,7 @@ import {
 
 import {
   ApiSuccess,
-} from "../../contracts/api-response.contract";
+} from "@core/contracts-api/api-response.contract";
 
 export const successResponse =
   <T>(

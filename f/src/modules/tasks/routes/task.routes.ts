@@ -2,25 +2,25 @@ import { Router } from "express";
 
 import {
   authenticateWallet,
-} from "../../../core/middleware/auth.middleware";
+} from "@core/middleware/auth.middleware";
 
 import {
   walletRateLimit,
-} from "../../../core/middleware/rate-limit.middleware";
+} from "@core/middleware/rate-limit.middleware";
 
 import {
   validateRequest,
-} from "../../../core/middleware/validate-request.middleware";
+} from "@core/middleware/validate-request.middleware";
 
 import {
   asyncHandler,
-} from "../../../core/utils/async-handler";
+} from "@core/utils/async-handler";
 
 import {
-  submitTask,
-  getTasks,
-  getMyTasks,
-} from "../controllers/task.controller";
+  getTasksController,
+  submitTaskController,
+  getTaskHistoryController,
+} from "@modules/tasks/controllers/task.controller";
 
 import {
   submitTaskSchema,
@@ -37,7 +37,7 @@ router.get(
   walletRateLimit,
 
   asyncHandler(
-    getTasks
+    getTasksController
   )
 );
 
@@ -50,7 +50,7 @@ router.get(
   authenticateWallet,
 
   asyncHandler(
-    getMyTasks
+    getTaskHistoryController
   )
 );
 
@@ -67,7 +67,7 @@ router.post(
   ),
 
   asyncHandler(
-    submitTask
+    submitTaskController
   )
 );
 

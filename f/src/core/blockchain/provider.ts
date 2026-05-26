@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { contracts, DEFAULT_CHAIN } from "../config/contracts";
+import { contracts, DEFAULT_CHAIN } from "@core/config/contracts";
 
 const chain = DEFAULT_CHAIN;
 const config = contracts[chain];

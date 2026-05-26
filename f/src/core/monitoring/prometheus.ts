@@ -3,7 +3,7 @@ import {
   Response,
 } from "express";
 
-import { metricsRegistry } from "./metrics";
+import { metricsRegistry } from "@core/monitoring/metrics";
 
 export const prometheusHandler =
   async (

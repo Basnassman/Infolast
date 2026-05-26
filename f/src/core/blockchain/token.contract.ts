@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { wallet, provider, config } from "./provider";
-import TokenABI from "../abis/Token.json";
+import { wallet, provider, config } from "@core/blockchain/provider";
+import TokenABI from "@core/abis/Token";
 
 // Read-only contract
 export const tokenContractRead = new ethers.Contract(

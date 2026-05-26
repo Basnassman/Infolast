@@ -4,7 +4,7 @@ import {
 
 import {
   PaginationMeta,
-} from "../../contracts/pagination.contract";
+} from "@core/contracts-api/pagination.contract";
 
 export type PaginatedSuccess<T> =
   {

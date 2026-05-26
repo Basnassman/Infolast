@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { wallet, provider, config } from "./provider";
-import SaleABI from "../abis/Sale.json";
+import { wallet, provider, config } from "@core/blockchain/provider";
+import SaleABI from "@core/abis/Sale";
 
 // Read-only contract
 export const saleContractRead = new ethers.Contract(

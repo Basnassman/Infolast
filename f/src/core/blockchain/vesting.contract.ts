@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { wallet, provider, config } from "./provider";
-import VestingABI from "../abis/Vesting.json";
+import { wallet, provider, config } from "@core/blockchain/provider";
+import VestingABI from "@core/abis/Vesting";
 
 // Read-only contract
 export const vestingContractRead = new ethers.Contract(

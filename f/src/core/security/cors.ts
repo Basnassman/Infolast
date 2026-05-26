@@ -1,6 +1,6 @@
 import cors from "cors";
 
-import { env } from "../config/env";
+import { env } from "@core/config/env";
 
 export const corsMiddleware =
   cors({

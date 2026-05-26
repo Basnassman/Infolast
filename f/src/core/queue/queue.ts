@@ -2,7 +2,7 @@ import { Queue } from "bullmq";
 
 import IORedis from "ioredis";
 
-import { env } from "../config/env";
+import { env } from "@core/config/env";
 
 const connection =
   new IORedis(

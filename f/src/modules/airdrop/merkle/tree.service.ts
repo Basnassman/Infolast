@@ -4,7 +4,7 @@ import keccak256 from "keccak256";
 import {
   hashLeaf,
   normalizeWallet,
-} from "./hash.service";
+} from "@modules/airdrop/merkle/hash.service";
 
 const DEFAULT_CHAIN_ID = 11155111;
 

@@ -2,15 +2,15 @@ import { Router } from "express";
 
 import {
   authenticateWallet,
-} from "../../../core/middleware/auth.middleware";
+} from "@core/middleware/auth.middleware";
 
 import {
-  walletRateLimit,
-} from "../../../core/middleware/rate-limit.middleware";
+  rateLimit,
+} from "@core/middleware/rate-limit.middleware";
 
 import {
   successResponse,
-} from "../../../core/responses/success.response";
+} from "@core/api/responses/success.response";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
 router.post(
   "/connect",
 
-  walletRateLimit,
+  rateLimit({ windowMs: 60000, maxRequests: 30 }),
 
   authenticateWallet,
 
