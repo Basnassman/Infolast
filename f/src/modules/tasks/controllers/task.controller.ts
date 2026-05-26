@@ -1,190 +1,96 @@
-import { Request, Response } from "express";
+// src/modules/tasks/controllers/task.controller.ts
 
-import { prisma } from "../../../core/db/prisma";
+import {
+  Request,
+  Response,
+} from "express";
 
-import { processTaskExecution } from "../workers/task-worker";
+import {
+  asyncHandler,
+} from "../../../core/utils/async-handler";
 
-import { getOrCreateUser } from "../../user/utils/user";
+import {
+  buildSuccessResponse,
+} from "../../../core/responses/success.response";
 
-/**
- * 📋 List active tasks
- */
-export const listTasks = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const tasks =
-      await prisma.task.findMany({
-        where: {
-          isActive: true,
-        },
+import {
+  normalizeTask,
+  normalizeTaskSubmission,
+} from "../normalizers/task.normalizer";
 
-        orderBy: {
-          points: "desc",
-        },
-      });
+import {
+  getAvailableTasks,
+  submitTask,
+  getUserTaskHistory,
+} from "../services/task.service";
 
-    return res.json({
-      success: true,
-      tasks,
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
+export const getTasksController =
+  asyncHandler(
+    async (
+      req: Request,
+      res: Response
+    ) => {
+      const walletAddress =
+        String(
+          req.query.walletAddress
+        );
 
-/**
- * ✅ Complete task
- */
-export const completeTask = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const {
-      wallet,
-      taskId,
-      proof,
-    } = req.body;
+      const tasks =
+        await getAvailableTasks(
+          walletAddress
+        );
 
-    if (!wallet || !taskId) {
-      return res.status(400).json({
-        success: false,
-        error:
-          "wallet and taskId are required",
-      });
-    }
-
-    const normalizedWallet =
-      wallet.toLowerCase();
-
-    const ip =
-      req.ip || "0.0.0.0";
-
-    const userAgent =
-      req.get("User-Agent") || undefined;
-
-    const user =
-      await getOrCreateUser(
-        normalizedWallet
+      return res.json(
+        buildSuccessResponse(
+          tasks.map(normalizeTask)
+        )
       );
-
-    if (user.status !== "ACTIVE") {
-      return res.status(403).json({
-        success: false,
-        error:
-          "User is not active",
-      });
     }
+  );
 
-    const result =
-      await processTaskExecution(
-        user.id,
-        taskId,
-        ip,
-        userAgent,
-        proof
+export const submitTaskController =
+  asyncHandler(
+    async (
+      req: Request,
+      res: Response
+    ) => {
+      const result =
+        await submitTask(
+          req.body
+        );
+
+      return res.json(
+        buildSuccessResponse(
+          normalizeTaskSubmission(
+            result
+          )
+        )
       );
-
-    return res.json({
-      success: true,
-
-      status: result.status,
-
-      verified:
-        result.verified,
-
-      rewardGiven:
-        result.rewardGiven,
-
-      points:
-        result.points,
-
-      riskScore:
-        result.riskScore,
-    });
-  } catch (error: any) {
-    console.error(
-      "[TaskController]",
-      error
-    );
-
-    return res.status(400).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * 📊 Get user task status
- */
-export const getStatus = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const wallet =
-      req.query.wallet;
-
-    if (
-      !wallet ||
-      typeof wallet !== "string"
-    ) {
-      return res.status(400).json({
-        success: false,
-        error:
-          "wallet is required",
-      });
     }
+  );
 
-    const user =
-      await prisma.user.findUnique({
-        where: {
-          walletAddress:
-            wallet.toLowerCase(),
-        },
+export const getTaskHistoryController =
+  asyncHandler(
+    async (
+      req: Request,
+      res: Response
+    ) => {
+      const walletAddress =
+        String(
+          req.params.walletAddress
+        );
 
-        include: {
-          userTasks: {
-            include: {
-              task: true,
-            },
+      const history =
+        await getUserTaskHistory(
+          walletAddress
+        );
 
-            orderBy: {
-              completedAt: "desc",
-            },
-          },
-        },
-      });
-
-    if (!user) {
-      return res.json({
-        success: true,
-        tasks: [],
-      });
+      return res.json(
+        buildSuccessResponse(
+          history.map(
+            normalizeTaskSubmission
+          )
+        )
+      );
     }
-
-    return res.json({
-      success: true,
-      tasks: user.userTasks,
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-
-export const tasksController = {
-  listTasks,
-
-  completeTask,
-
-  getStatus,
-};
+  );
