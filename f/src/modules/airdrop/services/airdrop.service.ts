@@ -1,113 +1,95 @@
-import { prisma } from "../../../core/db/prisma";
-import { UserCategory } from "@prisma/client";
-import { getClaimStatus } from "./claim.service";
-import { getSyncStatus } from "./contract-sync.service";
+import {
+  prisma,
+} from "../../../core/db/prisma";
 
-/**
- * 🪂 Airdrop Service (Refactored)
- * 
- * Slimmed down to only:
- * - User category sync
- * - Eligibility queries
- * - High-level airdrop info
- * 
- * REMOVED:
- * - processAirdrop() (moved to allocation + merkle-sync)
- * - Merkle tree building
- * - Proof generation
- * - Direct contract interactions
- */
+import {
+  DistributionType,
+  MerkleRootStatus,
+} from "@prisma/client";
 
-/**
- * Get airdrop eligibility for a user
- * Returns: amount (wei) + proof + alreadyClaimed
- */
-export const getAirdropEligibility = async (wallet: string) => {
-  const normalizedWallet = wallet.toLowerCase();
+import {
+  getClaimStatus,
+} from "./claim.service";
 
-  // Use claim service for validation
-  const claimStatus = await getClaimStatus(normalizedWallet);
-  const syncStatus = await getSyncStatus();
+export const getAirdropEligibility =
+  async (
+    walletAddress: string
+  ) => {
+    const normalized =
+      walletAddress.toLowerCase();
 
-  if (!claimStatus.eligible) {
+    const status =
+      await getClaimStatus(
+        normalized
+      );
+
     return {
-      eligible: false,
-      amount: "0",
-      proof: [],
-      alreadyClaimed: false,
-      message: "Address not eligible for airdrop",
-      rootSet: syncStatus.dbRoot !== "0x0",
+      eligible:
+        status.eligible,
+
+      amountWei:
+        status.amountWei,
+
+      proof:
+        status.proof,
+
+      claims:
+        status.claims,
     };
-  }
-
-  return {
-    eligible: true,
-    amount: claimStatus.amountWei,
-    proof: claimStatus.proof,
-    alreadyClaimed: claimStatus.claimed,
-    rootSet: syncStatus.dbRoot !== "0x0",
-    root: syncStatus.dbRoot,
   };
-};
 
-/**
- * Sync user category based on activity
- * Called after purchases or point changes
- */
-export const syncUserCategory = async (wallet: string) => {
-  const user = await prisma.user.findUnique({
-    where: { wallet: wallet.toLowerCase() },
-    include: { _count: { select: { purchases: true } } },
-  });
+export const getAirdropStats =
+  async () => {
+    const [
+      users,
+      participants,
+      claims,
+      activeRoot,
+    ] = await Promise.all([
+      prisma.user.count(),
 
-  if (!user) return;
+      prisma.airdropParticipant.count(),
 
-  let category: UserCategory = UserCategory.NONE;
-  const hasAirdrop = user.airdropPoints > 0;
-  const hasPurchases = user._count.purchases > 0;
+      prisma.distributionClaim.count({
+        where: {
+          distributionType:
+            DistributionType.AIRDROP,
+        },
+      }),
 
-  if (hasAirdrop && hasPurchases) category = UserCategory.AIRDROP_BUYER;
-  else if (hasAirdrop) category = UserCategory.AIRDROP_ONLY;
-  else if (hasPurchases) category = UserCategory.BUYER_ONLY;
+      prisma.merkleRoot.findFirst({
+        where: {
+          distributionType:
+            DistributionType.AIRDROP,
 
-  await prisma.user.update({
-    where: { wallet: user.wallet },
-    data: { category },
-  });
-};
+          status:
+            MerkleRootStatus.ACTIVE,
+        },
 
-/**
- * Get airdrop statistics
- */
-export const getAirdropStats = async () => {
-  const [
-    totalUsers,
-    eligibleUsers,
-    claimedUsers,
-    totalPoints,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({
-      where: { airdropAllocatedWei: { not: "0" } },
-    }),
-    prisma.user.count({
-      where: { hasClaimedAirdrop: true },
-    }),
-    prisma.user.aggregate({
-      _sum: { airdropPoints: true },
-    }),
-  ]);
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+    ]);
 
-  const syncStatus = await getSyncStatus();
+    return {
+      totalUsers:
+        users,
 
-  return {
-    totalUsers,
-    eligibleUsers,
-    claimedUsers,
-    totalPoints: totalPoints._sum.airdropPoints || 0,
-    merkleRoot: syncStatus.dbRoot,
-    contractRoot: syncStatus.contractRoot,
-    inSync: syncStatus.inSync,
-    lastSyncedAt: syncStatus.lastSyncedAt,
+      participants,
+
+      claims,
+
+      activeRoot:
+        activeRoot?.root ||
+        null,
+
+      eligibleCount:
+        activeRoot?.eligibleCount ||
+        0,
+
+      totalAmountWei:
+        activeRoot?.totalAmountWei ||
+        "0",
+    };
   };
-};
