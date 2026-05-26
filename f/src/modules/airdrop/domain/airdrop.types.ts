@@ -1,36 +1,22 @@
-import { DistributionType } from "@prisma/client";
+import {
+  DistributionType,
+  UserStatus,
+} from "@prisma/client";
 
-export interface AllocationInput {
+export interface ParticipantUser {
+  id: string;
+
   walletAddress: string;
-  points: number;
-  totalPurchasedUsd?: number;
-}
 
-export interface AllocationResult {
-  eligible: boolean;
+  status: UserStatus;
 
-  points: number;
-
-  allocationTokens: string;
-
-  allocationWei: string;
-
-  multiplier: number;
-
-  reason?: string | null;
-}
-
-export interface EligibilityResult {
-  eligible: boolean;
-  reason?: string;
+  createdAt: Date;
 }
 
 export interface AirdropParticipantView {
   id: string;
 
   userId: string;
-
-  walletAddress: string;
 
   points: number;
 
@@ -41,14 +27,60 @@ export interface AirdropParticipantView {
   airdropDirty: boolean;
 
   lastCalculatedAt: Date | null;
+
+  createdAt: Date;
+
+  updatedAt: Date;
+
+  user: ParticipantUser;
 }
 
-export interface DistributionSnapshotResult {
-  distributionType: DistributionType;
+export interface AllocationResult {
+  eligible: boolean;
 
-  totalUsers: number;
+  allocationWei: string;
+
+  allocationTokens: string;
+
+  reason?: string | null;
+}
+
+export interface MerkleEntry {
+  walletAddress: string;
+
+  amountWei: string;
+}
+
+export interface MerkleProofRecord {
+  walletAddress: string;
+
+  leaf: string;
+
+  proof: string[];
+
+  amountWei: string;
+}
+
+export interface MerkleSnapshot {
+  root: string;
+
+  eligibleCount: number;
 
   totalAmountWei: string;
 
-  snapshotVersion: number;
+  entries: MerkleEntry[];
+
+  proofs: MerkleProofRecord[];
+}
+
+export interface CreateMerkleRootInput {
+  distributionType?: DistributionType;
+
+  root: string;
+
+  eligibleCount: number;
+
+  totalAmountWei: string;
+
+  ipfsSnapshotUrl?: string | null;
 }
