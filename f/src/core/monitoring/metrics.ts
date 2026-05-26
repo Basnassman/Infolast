@@ -1,29 +1,30 @@
-import { Request, Response, NextFunction } from "express";
+import client from "prom-client";
 
-let totalRequests = 0;
-let failedRequests = 0;
-let successfulClaims = 0;
+client.collectDefaultMetrics();
 
-export const metricsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  totalRequests++;
+export const httpRequests =
+  new client.Counter({
+    name:
+      "http_requests_total",
 
-  res.on("finish", () => {
-    if (res.statusCode >= 400) {
-      failedRequests++;
-    }
+    help:
+      "Total HTTP requests",
+
+    labelNames: [
+      "method",
+      "route",
+      "status",
+    ],
   });
 
-  next();
-};
+export const blockchainTxs =
+  new client.Counter({
+    name:
+      "blockchain_transactions_total",
 
-export const incrementClaimSuccess = () => {
-  successfulClaims++;
-};
+    help:
+      "Total blockchain txs",
+  });
 
-export const getMetrics = () => {
-  return {
-    totalRequests,
-    failedRequests,
-    successfulClaims,
-  };
-};
+export const metricsRegistry =
+  client.register;

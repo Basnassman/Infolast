@@ -1,19 +1,74 @@
 import { Router } from "express";
-import { tasksController } from "../controllers/task.controller";
+
+import {
+  authenticateWallet,
+} from "../../../core/middleware/auth.middleware";
+
+import {
+  walletRateLimit,
+} from "../../../core/middleware/rate-limit.middleware";
+
+import {
+  validateRequest,
+} from "../../../core/middleware/validate-request.middleware";
+
+import {
+  asyncHandler,
+} from "../../../core/utils/async-handler";
+
+import {
+  submitTask,
+  getTasks,
+  getMyTasks,
+} from "../controllers/task.controller";
+
+import {
+  submitTaskSchema,
+} from "../dto/submit-task.dto";
 
 const router = Router();
 
 /**
- * 🧭 مسارات نظام المهام الاجتماعية
+ * GET /tasks
  */
+router.get(
+  "/",
 
-// جلب قائمة المهام النشطة
-router.get("/list", tasksController.listTasks);
+  walletRateLimit,
 
-// إكمال مهمة
-router.post("/complete", tasksController.completeTask);
+  asyncHandler(
+    getTasks
+  )
+);
 
-// جلب حالة مهام مستخدم معين
-router.get("/status", tasksController.getStatus);
+/**
+ * GET /tasks/me
+ */
+router.get(
+  "/me",
+
+  authenticateWallet,
+
+  asyncHandler(
+    getMyTasks
+  )
+);
+
+/**
+ * POST /tasks/submit
+ */
+router.post(
+  "/submit",
+
+  authenticateWallet,
+
+  validateRequest(
+    submitTaskSchema
+  ),
+
+  asyncHandler(
+    submitTask
+  )
+);
 
 export default router;

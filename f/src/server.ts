@@ -1,11 +1,41 @@
 import app from "./app";
 
-const PORT = process.env.PORT || 3001;
+import {
+  env,
+} from "./core/config/env";
 
-app.listen(PORT, () => {
-  console.log("🚀 FOR Token Backend Server");
-  console.log(`📡 Port: ${PORT}`);
-  console.log(`⛓️  Chain: Sepolia (11155111)`);
-  console.log(`🔗 RPC: ${process.env.SEPOLIA_RPC || "https://rpc.sepolia.org"}`);
-  console.log("✅ Server ready!");
-});
+const server =
+  app.listen(
+    env.port,
+    () => {
+      console.log(
+        `🚀 Server running on port ${env.port}`
+      );
+    }
+  );
+
+const shutdown = (
+  signal: string
+) => {
+  console.log(
+    `\n${signal} received. Shutting down...`
+  );
+
+  server.close(() => {
+    console.log(
+      "HTTP server closed"
+    );
+
+    process.exit(0);
+  });
+};
+
+process.on(
+  "SIGINT",
+  () => shutdown("SIGINT")
+);
+
+process.on(
+  "SIGTERM",
+  () => shutdown("SIGTERM")
+);

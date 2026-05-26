@@ -1,33 +1,23 @@
 import express from "express";
-import cors from "cors";
-import airdropRoutes from "./modules/airdrop/routes/airdrop.routes";
-import purchaseRoutes from "./modules/purchase/routes/purchase.routes";
-import vestingRoutes from "./modules/vesting/routes/vesting.routes";
-import tasksRoutes from "./modules/tasks/routes/task.routes";
-import adminRoutes from "./modules/admin/routes/admin.routes"; // ← جديد
-import authRoutes from "./modules/auth/routes/auth.routes";
-import './shared/types/global';
-import { initCronJobs } from "./core/cron/cron-scheduler";
+
+import {
+  registerMiddlewares,
+} from "./core/http/register-middlewares";
+
+import {
+  registerRoutes,
+} from "./core/http/register-routes";
+
+import {
+  registerErrors,
+} from "./core/http/register-errors";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+registerMiddlewares(app);
 
-// Routes
-app.use("/api/airdrop", airdropRoutes);
-app.use("/api/purchase", purchaseRoutes);
-app.use("/api/vesting", vestingRoutes);
-app.use("/api/tasks", tasksRoutes);
-app.use("/api/admin", adminRoutes); // ← جديد
-app.use("/api/auth", authRoutes);
+registerRoutes(app);
 
-initCronJobs();
-
-
-// Health Check
-app.get("/health", (req, res) => {
-res.json({ status: "ok", timestamp: new Date() });
-});
+registerErrors(app);
 
 export default app;

@@ -1,22 +1,21 @@
-import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
 
-export const healthCheck = async (_: Request, res: Response) => {
-  try {
-    // اختبار DB
-    await prisma.$queryRaw`SELECT 1`;
+import { redis } from "../cache/redis";
 
-    res.json({
-      status: "ok",
-      uptime: process.uptime(),
-      db: "connected",
-      timestamp: new Date(),
-    });
+export const healthCheck =
+  async () => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
 
-  } catch (err) {
-    res.status(500).json({
-      status: "error",
-      db: "disconnected",
-    });
-  }
-};
+      await redis.ping();
+
+      return {
+        status: "healthy",
+      };
+    } catch {
+      return {
+        status:
+          "unhealthy",
+      };
+    }
+  };

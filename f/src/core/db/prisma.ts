@@ -1,13 +1,32 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
 
-const { Pool } = pg;
+import { withExtensions } from "./prisma-extensions";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_O8DkZwEjclv2@ep-curly-waterfall-ammkb29s-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-});
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma:
+    | PrismaClient
+    | undefined;
+}
 
-const adapter = new PrismaPg(pool);
+const prismaClient =
+  global.__prisma ??
+  new PrismaClient({
+    log: [
+      "warn",
+      "error",
+    ],
+  });
 
-export const prisma = new PrismaClient({ adapter });
+export const prisma =
+  withExtensions(
+    prismaClient
+  );
+
+if (
+  process.env.NODE_ENV !==
+  "production"
+) {
+  global.__prisma =
+    prismaClient;
+}

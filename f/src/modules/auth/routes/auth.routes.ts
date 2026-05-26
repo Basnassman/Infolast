@@ -1,45 +1,56 @@
 import { Router } from "express";
-import { ethers } from "ethers";
-import { airdropContractRead } from "../../../core/blockchain/airdrop.contract";
+
+import {
+  authenticateWallet,
+} from "../../../core/middleware/auth.middleware";
+
+import {
+  walletRateLimit,
+} from "../../../core/middleware/rate-limit.middleware";
+
+import {
+  successResponse,
+} from "../../../core/responses/success.response";
 
 const router = Router();
 
-const GOVERNANCE_ROLE = ethers.keccak256(
-  ethers.toUtf8Bytes("GOVERNANCE_ROLE")
+/**
+ * POST /auth/connect
+ * Verify wallet signature
+ */
+router.post(
+  "/connect",
+
+  walletRateLimit,
+
+  authenticateWallet,
+
+  async (req, res) => {
+    return res.json(
+      successResponse({
+        walletAddress:
+          req.auth.walletAddress,
+      })
+    );
+  }
 );
 
-const DEFAULT_ADMIN_ROLE = ethers.ZeroHash;
+/**
+ * GET /auth/me
+ */
+router.get(
+  "/me",
 
-router.get("/check-role", async (req, res) => {
-  try {
-    const wallet = req.query.wallet as string;
+  authenticateWallet,
 
-    if (!wallet) {
-      return res.status(400).json({
-        error: "wallet is required"
-      });
-    }
-
-    const isGov = await airdropContractRead.hasRole(
-      GOVERNANCE_ROLE,
-      wallet
+  async (req, res) => {
+    return res.json(
+      successResponse({
+        walletAddress:
+          req.auth.walletAddress,
+      })
     );
-
-    const isAdmin = await airdropContractRead.hasRole(
-      DEFAULT_ADMIN_ROLE,
-      wallet
-    );
-
-    res.json({
-      wallet,
-      isGov,
-      isAdmin
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      error: error.message
-    });
   }
-});
+);
 
 export default router;
