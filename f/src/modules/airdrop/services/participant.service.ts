@@ -1,72 +1,54 @@
 import {
-  calculateAllocation,
-} from "../engine/allocation.engine";
+  UserStatus,
+} from "@prisma/client";
 
-import {
-  evaluateEligibility,
-} from "../engine/eligibility.engine";
+import * as participantRepository
+  from "../repositories/participant.repository";
 
-import { prisma } from "../../../core/db/prisma";
+export const getEligibleParticipants =
+  async () => {
+    const participants =
+      await participantRepository.getEligibleParticipants();
 
-import { participantRepository } from "../repositories/participant.repository";
-
-import { getTotalPurchasedUsd } from "./allocation.service";
-
-export const syncParticipantAllocation =
-  async (userId: string) => {
-    const participant =
-      await participantRepository.getOrCreate(
-        userId
-      );
-
-    const totalPurchasedUsd =
-      await getTotalPurchasedUsd(userId);
-
-    const allocation =
-      calculateAllocation({
-        walletAddress:
-          participant.user.walletAddress,
-        points: participant.points,
-        totalPurchasedUsd,
-      });
-
-    const eligibility =
-      evaluateEligibility(allocation);
-
-    return participantRepository.updateAllocation(
-      participant.id,
-      {
-        points: allocation.points,
-        allocationWei:
-          allocation.allocationWei,
-        isEligible:
-          eligibility.eligible,
-      }
+    return participants.filter(
+      (participant) =>
+        participant.user.status ===
+          UserStatus.ACTIVE &&
+        participant.isEligible &&
+        participant.points > 0
     );
   };
 
-export const addParticipantPoints =
+export const getDirtyParticipants =
+  async () => {
+    return participantRepository.getDirtyParticipants();
+  };
+
+export const markParticipantDirty =
   async (
-    userId: string,
-    points: number
+    participantId: string
   ) => {
-    const participant =
-      await participantRepository.getOrCreate(
-        userId
-      );
+    return participantRepository.markDirty(
+      participantId
+    );
+  };
 
-    await prisma.airdropParticipant.update({
-      where: {
-        id: participant.id,
-      },
-      data: {
-        points: {
-          increment: points,
-        },
-      },
-    });
+export const clearParticipantDirty =
+  async (
+    participantId: string
+  ) => {
+    return participantRepository.clearDirty(
+      participantId
+    );
+  };
 
-    return syncParticipantAllocation(
-      userId
+export const updateParticipantAllocation =
+  async (
+    participantId: string,
+    allocationWei: string
+  ) => {
+    return participantRepository.updateAllocation(
+      participantId,
+      allocationWei
     );
   };
