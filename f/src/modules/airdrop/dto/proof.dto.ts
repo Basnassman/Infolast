@@ -1,40 +1,25 @@
 import { z } from "zod";
 
-export const proofRequestSchema =
-  z.object({
-    walletAddress:
-      z
-        .string()
-        .trim()
-        .toLowerCase()
-        .startsWith("0x")
-        .length(42),
-  });
+export const proofRequestSchema = z.object({
+  walletAddress: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .startsWith("0x")
+    .length(42),
+});
 
-export type ProofRequestDto =
-  z.infer<
-    typeof proofRequestSchema
-  >;
+export type ProofRequestDto = z.infer<typeof proofRequestSchema>;
 
-export const merkleProofSchema =
-  z.object({
-    walletAddress:
-      z.string(),
+// ✅ إصلاح: أسماء الحقول تطابق Prisma MerkleProof
+export const merkleProofSchema = z.object({
+  id: z.string().optional(),
+  merkleRootId: z.string(),
+  walletAddress: z.string(),
+  proof: z.array(z.string()),        // ✅ كان merkleProof
+  leaf: z.string(),                 // ✅ كان merkleLeaf
+  amountWei: z.string(),
+  createdAt: z.date().optional(),
+});
 
-    allocationWei:
-      z.string(),
-
-    merkleProof:
-      z.array(z.string()),
-
-    merkleLeaf:
-      z.string(),
-
-    merkleRoot:
-      z.string(),
-  });
-
-export type MerkleProofDto =
-  z.infer<
-    typeof merkleProofSchema
-  >;
+export type MerkleProofDto = z.infer<typeof merkleProofSchema>;
