@@ -1,94 +1,59 @@
 import { prisma } from "@core/db/prisma";
+import { UserStatus } from "@prisma/client";
 
-import {
-  UserStatus,
-} from "@prisma/client";
-
-export const getEligibleParticipants =
-  async () => {
-    return prisma.airdropParticipant.findMany({
-      where: {
-        isEligible: true,
-
-        points: {
-          gt: 0,
-        },
-
-        user: {
-          status: UserStatus.ACTIVE,
-        },
+export const getEligibleParticipants = async () => {
+  return prisma.airdropParticipant.findMany({
+    where: {
+      isEligible: true,           // ✅ Boolean
+      points: { gt: 0 },          // ✅ Int
+      user: {
+        status: UserStatus.ACTIVE, // ✅ Enum
       },
+    },
+    include: {
+      user: true,                 // ✅ Relation
+    },
+    orderBy: {
+      points: "desc",             // ✅ Int
+    },
+  });
+};
 
-      include: {
-        user: true,
-      },
+export const getDirtyParticipants = async () => {
+  return prisma.airdropParticipant.findMany({
+    where: {
+      airdropDirty: true,         // ✅ Boolean
+    },
+    include: {
+      user: true,                 // ✅ Relation
+    },
+  });
+};
 
-      orderBy: {
-        points: "desc",
-      },
-    });
-  };
+export const updateAllocation = async (
+  participantId: string,
+  allocationWei: string
+) => {
+  return prisma.airdropParticipant.update({
+    where: { id: participantId },
+    data: {
+      allocationWei,              // ✅ String
+      airdropDirty: false,        // ✅ Boolean
+      lastCalculatedAt: new Date(), // ✅ DateTime?
+    },
+  });
+};
 
-export const getDirtyParticipants =
-  async () => {
-    return prisma.airdropParticipant.findMany({
-      where: {
-        airdropDirty: true,
-      },
+export const markDirty = async (participantId: string) => {
+  return prisma.airdropParticipant.update({
+    where: { id: participantId },
+    data: { airdropDirty: true }, // ✅ Boolean
+  });
+};
 
-      include: {
-        user: true,
-      },
-    });
-  };
-
-export const updateAllocation =
-  async (
-    participantId: string,
-    allocationWei: string
-  ) => {
-    return prisma.airdropParticipant.update({
-      where: {
-        id: participantId,
-      },
-
-      data: {
-        allocationWei,
-
-        airdropDirty: false,
-
-        lastCalculatedAt:
-          new Date(),
-      },
-    });
-  };
-
-export const markDirty =
-  async (
-    participantId: string
-  ) => {
-    return prisma.airdropParticipant.update({
-      where: {
-        id: participantId,
-      },
-
-      data: {
-        airdropDirty: true,
-      },
-    });
-  };
-
-export const clearDirty =
-  async (
-    participantId: string
-  ) => {
-    return prisma.airdropParticipant.update({
-      where: {
-        id: participantId,
-      },
-
-      data: {
-        airdropDirty: false,
-      },
-    });
-  };
+export const clearDirty = async (participantId: string) => {
+  return prisma.airdropParticipant.update({
+    where: { id: participantId },
+    data: { airdropDirty: false }, // ✅ Boolean
+  });
+};
