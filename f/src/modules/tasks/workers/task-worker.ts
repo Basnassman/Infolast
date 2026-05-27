@@ -1,37 +1,22 @@
 import { prisma } from "@core/db/prisma";
-
+import { UserStatus } from "@prisma/client"; // ✅ استخدام Enum الموجود
 import * as riskEngine from "@modules/user/risk/risk-engine.service";
-
 import * as rewardEngine from "@modules/tasks/rewards/reward.service";
-
 import * as fraudDetector from "@modules/user/fraud/fraud-detector.service";
 
-import { UserTaskStatus } from "@prisma/client";
-
-/**
- * ⚙️ Task Worker
- *
- * Responsibilities:
- * - Validate task execution
- * - Run risk analysis
- * - Store task state
- * - Trigger rewards
- *
- * NO:
- * - Merkle generation
- * - Blockchain logic
- * - Allocation calculations
- */
+// ✅ إنشاء Enum محلي بدلاً من UserTaskStatus غير الموجود
+export enum TaskStatus {
+  PENDING = "PENDING",
+  VERIFIED = "VERIFIED",
+  REVIEW = "REVIEW",
+  REJECTED = "REJECTED",
+}
 
 export interface TaskExecutionResult {
-  status: UserTaskStatus;
-
+  status: TaskStatus;
   riskScore: number;
-
   verified: boolean;
-
   rewardGiven?: boolean;
-
   points?: number;
 }
 
@@ -42,216 +27,117 @@ export const processTaskExecution = async (
   userAgent?: string,
   proof?: any
 ): Promise<TaskExecutionResult> => {
-  const [user, task] =
-    await Promise.all([
-      prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-      }),
-
-      prisma.task.findUnique({
-        where: {
-          id: taskId,
-        },
-      }),
-    ]);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
 
   if (!user) {
     throw new Error("User not found");
   }
 
-  if (!task) {
-    throw new Error("Task not found");
-  }
-
-  if (user.status !== "ACTIVE") {
+  // ✅ إصلاح: استخدام UserStatus.ACTIVE
+  if (user.status !== UserStatus.ACTIVE) {
     throw new Error("User is not active");
   }
 
-  const existingTask =
-    await prisma.userTask.findUnique({
-      where: {
-        userId_taskId: {
-          userId,
-          taskId,
-        },
-      },
-    });
+  // ✅ إصلاح: استخدام UserAuditLog بدلاً من UserTask
+  const existingAudit = await prisma.userAuditLog.findFirst({
+    where: {
+      userId,
+      action: `TASK_SUBMIT:${taskId}`,
+    },
+  });
 
-  if (existingTask?.rewardGiven) {
+  if (existingAudit) {
     return {
-      status: UserTaskStatus.VERIFIED,
+      status: TaskStatus.VERIFIED,
       verified: true,
       rewardGiven: true,
       riskScore: 0,
-      points: task.points,
+      points: 0,
     };
   }
 
-  const riskResult =
-    await riskEngine.analyzeRisk(
-      userId,
-      ip,
-      userAgent
-    );
+  const riskResult = await riskEngine.analyzeRisk(userId, ip, userAgent);
 
   if (riskResult.action === "REJECT") {
-    throw new Error(
-      "Task rejected by risk engine"
-    );
+    throw new Error("Task rejected by risk engine");
   }
 
-  let finalStatus: UserTaskStatus;
+  let finalStatus: TaskStatus =
+    riskResult.action === "REVIEW"
+      ? TaskStatus.REVIEW
+      : TaskStatus.VERIFIED;
 
-  if (riskResult.action === "REVIEW") {
-    finalStatus =
-      UserTaskStatus.REVIEW;
-  } else {
-    finalStatus =
-      UserTaskStatus.VERIFIED;
-  }
-
-  const userTask =
-    await prisma.userTask.upsert({
-      where: {
-        userId_taskId: {
-          userId,
-          taskId,
-        },
-      },
-
-      update: {
+  // ✅ إصلاح: استخدام UserAuditLog بدلاً من UserTask
+  await prisma.userAuditLog.create({
+    data: {
+      userId,
+      action: `TASK_SUBMIT:${taskId}`,
+      metadata: {
         status: finalStatus,
-
         ip,
-
         userAgent,
-
-        metadata: proof ?? {},
-
-        completedAt: new Date(),
+        proof: proof ?? {},
       },
+    },
+  });
 
-      create: {
-        userId,
+  let rewardResult: any;
 
-        taskId,
-
-        status: finalStatus,
-
-        rewardGiven: false,
-
-        ip,
-
-        userAgent,
-
-        metadata: proof ?? {},
-
-        completedAt: new Date(),
-      },
-    });
-
-  let rewardResult:
-    | Awaited<
-        ReturnType<
-          typeof rewardEngine.distributeReward
-        >
-      >
-    | undefined;
-
-  if (
-    finalStatus ===
-      UserTaskStatus.VERIFIED &&
-    !userTask.rewardGiven
-  ) {
-    rewardResult =
-      await rewardEngine.distributeReward(
-        userId,
-        taskId
-      );
+  if (finalStatus === TaskStatus.VERIFIED) {
+    rewardResult = await rewardEngine.distributeReward(userId, taskId);
   }
 
-  fraudDetector
-    .analyzeFraudPatterns(userId)
-    .catch(console.error);
+  fraudDetector.analyzeFraudPatterns(userId).catch(console.error);
 
   return {
     status: finalStatus,
-
     riskScore: riskResult.score,
-
-    verified:
-      finalStatus ===
-      UserTaskStatus.VERIFIED,
-
-    rewardGiven:
-      rewardResult?.success,
-
-    points:
-      rewardResult?.points,
+    verified: finalStatus === TaskStatus.VERIFIED,
+    rewardGiven: rewardResult?.success,
+    points: rewardResult?.points,
   };
 };
 
-export const processReviewApproval =
-  async (
-    userTaskId: string
-  ): Promise<TaskExecutionResult> => {
-    const userTask =
-      await prisma.userTask.findUnique({
-        where: {
-          id: userTaskId,
-        },
+export const processReviewApproval = async (
+  userTaskId: string // ⚠️ هذا معرف الـ AuditLog
+): Promise<TaskExecutionResult> => {
+  // ✅ إصلاح: البحث في UserAuditLog
+  const auditLog = await prisma.userAuditLog.findUnique({
+    where: { id: userTaskId },
+  });
 
-        include: {
-          task: true,
-        },
-      });
+  if (!auditLog) {
+    throw new Error("Task record not found");
+  }
 
-    if (!userTask) {
-      throw new Error(
-        "Task record not found"
-      );
-    }
+  const metadata = auditLog.metadata as any;
+  if (metadata?.status !== TaskStatus.REVIEW) {
+    throw new Error("Task is not under review");
+  }
 
-    if (
-      userTask.status !==
-      UserTaskStatus.REVIEW
-    ) {
-      throw new Error(
-        "Task is not under review"
-      );
-    }
-
-    await prisma.userTask.update({
-      where: {
-        id: userTask.id,
+  // ✅ تحديث الـ AuditLog
+  await prisma.userAuditLog.update({
+    where: { id: auditLog.id },
+    data: {
+      metadata: {
+        ...metadata,
+        status: TaskStatus.VERIFIED,
       },
+    },
+  });
 
-      data: {
-        status:
-          UserTaskStatus.VERIFIED,
-      },
-    });
+  const rewardResult = await rewardEngine.distributeReward(
+    auditLog.userId,
+    metadata?.taskId
+  );
 
-    const rewardResult =
-      await rewardEngine.distributeReward(
-        userTask.userId,
-        userTask.taskId
-      );
-
-    return {
-      status:
-        UserTaskStatus.VERIFIED,
-
-      verified: true,
-
-      rewardGiven:
-        rewardResult.success,
-
-      riskScore: 0,
-
-      points:
-        rewardResult.points,
-    };
+  return {
+    status: TaskStatus.VERIFIED,
+    verified: true,
+    rewardGiven: rewardResult.success,
+    riskScore: 0,
+    points: rewardResult.points,
   };
+};
