@@ -1,30 +1,11 @@
-// src/modules/airdrop/controllers/airdrop.controller.ts
+import { Request, Response } from "express";
+import { asyncHandler } from "@core/utils/async-handler";
+import { successResponse } from "@core/api/responses/success.response";
 
-import {
-  Request,
-  Response,
-} from "express";
-
-import {
-  asyncHandler,
-} from "@core/utils/async-handler";
-
-import {
-  successResponse,
-} from "@core/api/responses/success.response";
-
-import {
-  normalizeClaim,
-} from "@core/api/normalizers/claim.normalizer";
-
-import {
-  normalizeMerkleProof,
-  normalizeMerkleRoot,
-} from "@core/api/normalizers/merkle.normalizer";
-
-import {
-  normalizeParticipant,
-} from "@core/api/normalizers/participant.normalizer";
+// ✅ جميع الـ normalizers موجودة الآن!
+import { normalizeClaim } from "@core/api/normalizers/claim.normalizer";
+import { normalizeMerkleProof, normalizeMerkleRoot } from "@core/api/normalizers/merkle.normalizer";
+import { normalizeParticipant } from "@core/api/normalizers/participant.normalizer";
 
 import {
   getAirdropEligibility,
@@ -32,134 +13,60 @@ import {
 } from "@modules/airdrop/services/airdrop.service";
 
 import {
-  claimAirdrop as claimAirdropTransaction,
-  getClaimStatus as getClaimStatusByWallet,
+  recordClaim,
+  getClaimStatus,
 } from "@modules/airdrop/services/claim.service";
 
 import {
-  getMerkleProofByWallet,
+  getWalletProof,
 } from "@modules/airdrop/repositories/merkle-proof.repository";
 
-export const getEligibilityController =
-  asyncHandler(
-    async (
-      req: Request,
-      res: Response
-    ) => {
-      const walletAddress =
-        String(
-          req.params.walletAddress
-        );
+export const getEligibilityController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
+    const eligibility = await getAirdropEligibility(walletAddress);
 
-      const eligibility =
-        await getAirdropEligibility(
-          walletAddress
-        );
+    return successResponse(res, normalizeParticipant(eligibility));
+  }
+);
 
-      return successResponse(
-        res,
-        normalizeParticipant(
-          eligibility
-        )
-      );
-    }
-  );
+export const claimAirdropController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { walletAddress, txHash } = req.body;
+    const claim = await recordClaim(walletAddress, txHash);
 
-export const claimAirdropController =
-  asyncHandler(
-    async (
-      req: Request,
-      res: Response
-    ) => {
-      const claim =
-        await claimAirdropTransaction(
-          req.body
-        );
+    return successResponse(res, normalizeClaim(claim));
+  }
+);
 
-      return successResponse(
-        res,
-        normalizeClaim(claim)
-      );
-    }
-  );
+export const getClaimStatusController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
+    const status = await getClaimStatus(walletAddress);
 
-export const getClaimStatusController =
-  asyncHandler(
-    async (
-      req: Request,
-      res: Response
-    ) => {
-      const walletAddress =
-        String(
-          req.params.walletAddress
-        );
+    return successResponse(res, normalizeClaim(status));
+  }
+);
 
-      const status =
-        await getClaimStatusByWallet(
-          walletAddress
-        );
+export const getMerkleProofController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const walletAddress = String(req.query.walletAddress);
+    const proof = await getWalletProof(walletAddress);
 
-      return successResponse(
-        res,
-        normalizeClaim(status)
-      );
-    }
-  );
+    return successResponse(res, normalizeMerkleProof(proof));
+  }
+);
 
-export const getMerkleProofController =
-  asyncHandler(
-    async (
-      req: Request,
-      res: Response
-    ) => {
-      const walletAddress =
-        String(
-          req.query.walletAddress
-        );
+export const getAirdropStatsController = asyncHandler(
+  async (_req: Request, res: Response) => {
+    const stats = await getAirdropStats();
 
-      const proof =
-        await getMerkleProofByWallet(
-          walletAddress
-        );
+    return successResponse(res, normalizeMerkleRoot(stats));
+  }
+);
 
-      return successResponse(
-        res,
-        normalizeMerkleProof(
-          proof
-        )
-      );
-    }
-  );
-
-export const getAirdropStatsController =
-  asyncHandler(
-    async (
-      _req: Request,
-      res: Response
-    ) => {
-      const stats =
-        await getAirdropStats();
-
-      return successResponse(
-        res,
-        normalizeMerkleRoot(
-          stats
-        )
-      );
-    }
-  );
-
-export const checkEligibility =
-  getEligibilityController;
-
-export const getProof =
-  getMerkleProofController;
-
-export const claimAirdrop =
-  claimAirdropController;
-
-export const getClaimStatus =
-  getClaimStatusController;
-
-export const getAirdropStats =
-  getAirdropStatsController;
+export const checkEligibility = getEligibilityController;
+export const getProof = getMerkleProofController;
+export const claimAirdrop = claimAirdropController;
+export const getClaimStatus = getClaimStatusController;
+export const getAirdropStats = getAirdropStatsController;
