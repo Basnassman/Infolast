@@ -38,12 +38,9 @@ export const rebuildMerkleController =
       const result =
         await rebuildAndSync();
 
-      return res.json(
-        successResponse(
-          normalizeMerkleRoot(
-            result
-          )
-        )
+      return successResponse(
+        res,
+        result
       );
     }
   );
@@ -56,12 +53,9 @@ export const getLatestRootController =
     ) => {
       const root = await getActiveMerkleRoot();
 
-      return res.json(
-        successResponse(
-          normalizeMerkleRoot(
-            root
-          )
-        )
+      return successResponse(
+        res,
+        root
       );
     }
   );
@@ -75,10 +69,9 @@ export const getMerkleJobsController =
       const jobs =
         await getMerkleJobs();
 
-      return res.json(
-        successResponse(
-          jobs
-        )
+      return successResponse(
+        res,
+        jobs
       );
     }
   );

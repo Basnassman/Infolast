@@ -25,7 +25,7 @@ export type NormalizeParticipantInput =
 
 export const normalizeParticipant =
   (
-    participant: NormalizeParticipantInput
+    participant: NormalizeParticipantInput | any
   ) => {
     return {
       id: participant.id,

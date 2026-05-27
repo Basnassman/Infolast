@@ -85,7 +85,7 @@ export const saveAllProofs = async (entries: ProofEntry[], root: string): Promis
   for (const entry of entries) {
     const proofData = proofs.get(entry.wallet);
     operations.push(
-      prisma.userMerkleProof.upsert({
+      prisma.MerkleProof.upsert({
         where: { userId: entry.userId },
         update: {
           merkleProof: proofData?.proof || [],

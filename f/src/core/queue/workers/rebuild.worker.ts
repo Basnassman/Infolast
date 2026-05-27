@@ -15,7 +15,7 @@ const connection =
       maxRetriesPerRequest:
         null,
     }
-  );
+  ) as any;
 
 export const rebuildWorker =
   new Worker(

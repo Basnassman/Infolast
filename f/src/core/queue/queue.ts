@@ -11,7 +11,7 @@ const connection =
       maxRetriesPerRequest:
         null,
     }
-  );
+  ) as any;
 
 export const rebuildQueue =
   new Queue(

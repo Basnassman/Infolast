@@ -28,7 +28,7 @@ export type NormalizeMerkleRootInput =
 
 export const normalizeMerkleProof =
   (
-    proof: NormalizeMerkleProofInput
+    proof: NormalizeMerkleProofInput | any
   ) => {
     return {
       walletAddress:
@@ -50,7 +50,7 @@ export const normalizeMerkleProof =
 
 export const normalizeMerkleRoot =
   (
-    root: NormalizeMerkleRootInput
+    root: NormalizeMerkleRootInput | any
   ) => {
     return {
       id: root.id,

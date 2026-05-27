@@ -8,6 +8,8 @@ import {
   ApiError,
 } from "@core/contracts-api/error.contract";
 
+import { env } from "@core/config/env";
+
 export interface RateLimitOptions {
   windowMs: number;
 
@@ -108,3 +110,12 @@ export const rateLimit =
       next();
     };
   };
+
+export const walletRateLimit =
+  rateLimit({
+    windowMs:
+      env.rateLimit.windowMs,
+
+    maxRequests:
+      env.rateLimit.maxRequests,
+  });

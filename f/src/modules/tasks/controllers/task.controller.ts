@@ -40,10 +40,9 @@ export const getTasksController =
           walletAddress
         );
 
-      return res.json(
-        successResponse(
-          tasks.map(normalizeTask)
-        )
+      return successResponse(
+        res,
+        tasks.map(normalizeTask)
       );
     }
   );
@@ -59,11 +58,10 @@ export const submitTaskController =
           req.body
         );
 
-      return res.json(
-        successResponse(
-          normalizeTaskSubmission(
-            result
-          )
+      return successResponse(
+        res,
+        normalizeTaskSubmission(
+          result
         )
       );
     }
@@ -85,11 +83,10 @@ export const getTaskHistoryController =
           walletAddress
         );
 
-      return res.json(
-        successResponse(
-          history.map(
-            normalizeTaskSubmission
-          )
+      return successResponse(
+        res,
+        history.map(
+          normalizeTaskSubmission
         )
       );
     }

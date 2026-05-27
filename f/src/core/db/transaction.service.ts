@@ -14,7 +14,7 @@ export const transactionService =
       return await prisma.$transaction(
         async (tx) => {
           return await callback(
-            tx
+            tx as unknown as Prisma.TransactionClient
           );
         }
       );

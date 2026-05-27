@@ -9,12 +9,12 @@ import {
 const DEFAULT_CHAIN_ID = 11155111;
 
 export interface AirdropEntry {
-  wallet: string;
-  amount: string | number | bigint;
+  walletAddress: string;
+  amountWei: string | number | bigint;
 }
 
 export interface MerkleLeafNode {
-  wallet: string;
+  walletAddress: string;
   amount: string;
   leaf: string;
 }
@@ -36,7 +36,7 @@ const validateUniqueWallets = (
 
   for (const entry of entries) {
     const normalized =
-      normalizeWallet(entry.wallet);
+      normalizeWallet(entry.walletAddress);
 
     if (wallets.has(normalized)) {
       throw new Error(
@@ -64,10 +64,10 @@ export const buildMerkleTree = (
   const leaves: MerkleLeafNode[] =
     entries.map((entry) => {
       const normalizedWallet =
-        normalizeWallet(entry.wallet);
+        normalizeWallet(entry.walletAddress);
 
       const normalizedAmount =
-        BigInt(entry.amount).toString();
+        BigInt(entry.amountWei).toString();
 
       const leaf =
         hashLeaf(
@@ -77,7 +77,7 @@ export const buildMerkleTree = (
         );
 
       return {
-        wallet: normalizedWallet,
+        walletAddress: normalizedWallet,
         amount: normalizedAmount,
         leaf,
       };

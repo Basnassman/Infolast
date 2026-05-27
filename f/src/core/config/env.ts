@@ -18,6 +18,15 @@ export const env = {
     process.env.NODE_ENV ||
     "development",
 
+  redisUrl: required(
+    process.env.REDIS_URL,
+    "REDIS_URL"
+  ),
+
+  corsOrigin:
+    process.env.CORS_ORIGIN ||
+    true,
+
   port: Number(
     process.env.PORT || 3000
   ),

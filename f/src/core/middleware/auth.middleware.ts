@@ -5,7 +5,7 @@ import {
 } from "express";
 
 import {
-  authenticateWallet,
+  authenticateWallet as authenticateWalletRequest,
 } from "@core/auth/wallet-auth.service";
 
 import {
@@ -28,7 +28,7 @@ export const authenticate =
   ) => {
     try {
       const walletAddress =
-        authenticateWallet(
+        authenticateWalletRequest(
           req
         );
 
@@ -56,3 +56,6 @@ export const authenticate =
         .json(response);
     }
   };
+
+export const authenticateWallet =
+  authenticate;

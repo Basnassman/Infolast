@@ -41,7 +41,7 @@ router.get(
 
   requireAdmin,
 
-  asyncHandler(getLatestRootController)
+  getLatestRootController
 );
 
 /**
@@ -52,7 +52,7 @@ router.get(
 
   requireGov,
 
-  asyncHandler(getMerkleJobsController)
+  getMerkleJobsController
 );
 
 /**
@@ -63,7 +63,7 @@ router.post(
 
   requireGov,
 
-  asyncHandler(rebuildMerkleController)
+  rebuildMerkleController
 );
 
 export default router;

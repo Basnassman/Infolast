@@ -13,7 +13,7 @@ const connection =
       maxRetriesPerRequest:
         null,
     }
-  );
+  ) as any;
 
 export const claimWorker =
   new Worker(

@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import {
-  authenticateWallet,
+  authenticate,
 } from "@core/middleware/auth.middleware";
 
 import {
@@ -23,14 +23,15 @@ router.post(
 
   rateLimit({ windowMs: 60000, maxRequests: 30 }),
 
-  authenticateWallet,
+  authenticate,
 
   async (req, res) => {
-    return res.json(
-      successResponse({
+    return successResponse(
+      res,
+      {
         walletAddress:
-          req.auth.walletAddress,
-      })
+          req.walletAddress,
+      }
     );
   }
 );
@@ -41,14 +42,15 @@ router.post(
 router.get(
   "/me",
 
-  authenticateWallet,
+  authenticate,
 
   async (req, res) => {
-    return res.json(
-      successResponse({
+    return successResponse(
+      res,
+      {
         walletAddress:
-          req.auth.walletAddress,
-      })
+          req.walletAddress,
+      }
     );
   }
 );

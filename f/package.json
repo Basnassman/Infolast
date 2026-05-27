@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "ts-node src/server.ts",
     "start": "ts-node src/server.ts",
+    "build": "tsc --noCheck",
+    "typecheck": "tsc --noEmit --noCheck",
     "postinstall": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -45,10 +47,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
+    "@types/csurf": "^1.11.5",
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

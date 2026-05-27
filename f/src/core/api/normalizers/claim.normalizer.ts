@@ -17,7 +17,7 @@ export type NormalizeClaimInput =
 
 export const normalizeClaim =
   (
-    claim: NormalizeClaimInput
+    claim: NormalizeClaimInput | any
   ) => {
     return {
       id: claim.id,

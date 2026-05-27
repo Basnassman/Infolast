@@ -32,8 +32,8 @@ import {
 } from "@modules/airdrop/services/airdrop.service";
 
 import {
-  claimAirdrop,
-  getClaimStatus,
+  claimAirdrop as claimAirdropTransaction,
+  getClaimStatus as getClaimStatusByWallet,
 } from "@modules/airdrop/services/claim.service";
 
 import {
@@ -56,11 +56,10 @@ export const getEligibilityController =
           walletAddress
         );
 
-      return res.json(
-        successResponse(
-          normalizeParticipant(
-            eligibility
-          )
+      return successResponse(
+        res,
+        normalizeParticipant(
+          eligibility
         )
       );
     }
@@ -73,14 +72,13 @@ export const claimAirdropController =
       res: Response
     ) => {
       const claim =
-        await claimAirdrop(
+        await claimAirdropTransaction(
           req.body
         );
 
-      return res.json(
-        successResponse(
-          normalizeClaim(claim)
-        )
+      return successResponse(
+        res,
+        normalizeClaim(claim)
       );
     }
   );
@@ -97,14 +95,13 @@ export const getClaimStatusController =
         );
 
       const status =
-        await getClaimStatus(
+        await getClaimStatusByWallet(
           walletAddress
         );
 
-      return res.json(
-        successResponse(
-          normalizeClaim(status)
-        )
+      return successResponse(
+        res,
+        normalizeClaim(status)
       );
     }
   );
@@ -125,11 +122,10 @@ export const getMerkleProofController =
           walletAddress
         );
 
-      return res.json(
-        successResponse(
-          normalizeMerkleProof(
-            proof
-          )
+      return successResponse(
+        res,
+        normalizeMerkleProof(
+          proof
         )
       );
     }
@@ -144,12 +140,26 @@ export const getAirdropStatsController =
       const stats =
         await getAirdropStats();
 
-      return res.json(
-        successResponse(
-          normalizeMerkleRoot(
-            stats
-          )
+      return successResponse(
+        res,
+        normalizeMerkleRoot(
+          stats
         )
       );
     }
   );
+
+export const checkEligibility =
+  getEligibilityController;
+
+export const getProof =
+  getMerkleProofController;
+
+export const claimAirdrop =
+  claimAirdropController;
+
+export const getClaimStatus =
+  getClaimStatusController;
+
+export const getAirdropStats =
+  getAirdropStatsController;

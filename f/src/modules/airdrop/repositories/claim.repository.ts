@@ -3,7 +3,7 @@ import { prisma } from "@core/db/prisma";
 import {
   ClaimStatus,
   DistributionType,
-  MerkleRootStatus,
+  MerkleRoot,
 } from "@prisma/client";
 
 export const getActiveMerkleRoot =
@@ -14,7 +14,7 @@ export const getActiveMerkleRoot =
           DistributionType.AIRDROP,
 
         status:
-          MerkleRootStatus.ACTIVE,
+          MerkleRoot.ACTIVE,
       },
 
       orderBy: {
