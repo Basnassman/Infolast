@@ -2,7 +2,7 @@ import { prisma } from "@core/db/prisma";
 import { DistributionType, MerkleJobStatus } from "@prisma/client";
 import { recalculateAllocations } from "@modules/airdrop/services/allocation.service";
 import { getEligibleParticipants } from "@modules/airdrop/services/participant.service";
-import { buildMerkleSnapshot } from "@modules/airdrop/services/merkle-builder.service"; // ⚠️ غير موجود في الهيكل
+import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service"; // ✅ إصلاح: buildMerkleTree من tree.service
 import { pushMerkleRoot } from "@modules/airdrop/services/merkle-sync.service";
 import { isRebuildNeeded } from "@modules/airdrop/services/rebuild-check.service";
 import { createMerkleRoot, updateMerkleRootTxHash } from "@modules/airdrop/repositories/merkle-root.repository";
@@ -17,6 +17,70 @@ export interface RebuildResult {
   totalAmountWei?: string;
   error?: string;
 }
+
+/**
+ * 🏗️ Build Merkle snapshot from participants
+ * 
+ * Converts Prisma AirdropParticipant[] → AirdropEntry[]
+ * then builds the Merkle tree
+ */
+const buildMerkleSnapshot = (
+  participants: Array<{
+    user: { walletAddress: string };
+    allocationWei: string;
+  }>
+): {
+  root: string;
+  eligibleCount: number;
+  totalAmountWei: string;
+  proofs: Array<{
+    walletAddress: string;
+    proof: string[];
+    leaf: string;
+    amountWei: string;
+  }>;
+} => {
+  // ✅ تحويل إلى AirdropEntry (walletAddress + amountWei)
+  const entries: AirdropEntry[] = participants.map((p) => ({
+    walletAddress: p.user.walletAddress,
+    amountWei: p.allocationWei,
+  }));
+
+  const result = buildMerkleTree(entries);
+
+  if (!result) {
+    throw new Error("Failed to build Merkle tree");
+  }
+
+  const totalAmountWei = result.leaves.reduce(
+    (sum, leaf) => sum + BigInt(leaf.amount),
+    0n
+  );
+
+  // ✅ تحويل الإثباتات إلى تنسيق مطابق لـ saveMerkleProofs
+  const proofs = result.leaves.map((leaf) => {
+    // الحصول على الإثبات من الشجرة
+    const leafBuffer = Buffer.from(leaf.leaf.slice(2), "hex");
+    const proofBuffers = result.tree.getProof(leafBuffer);
+    const proof = proofBuffers.map(
+      (p: any) => "0x" + p.data.toString("hex")
+    );
+
+    return {
+      walletAddress: leaf.walletAddress,
+      proof,
+      leaf: leaf.leaf,
+      amountWei: leaf.amount,
+    };
+  });
+
+  return {
+    root: result.root,
+    eligibleCount: participants.length,
+    totalAmountWei: totalAmountWei.toString(),
+    proofs,
+  };
+};
 
 export const rebuildAndSync = async (): Promise<RebuildResult> => {
   const startedAt = new Date();
@@ -40,8 +104,8 @@ export const rebuildAndSync = async (): Promise<RebuildResult> => {
       throw new Error("No eligible participants found");
     }
 
-    // 3️⃣ build snapshot
-    const snapshot = buildMerkleSnapshot(participants); // ⚠️ يجب التأكد من وجوده
+    // 3️⃣ build snapshot ✅ (مُضمَّن الآن في نفس الملف)
+    const snapshot = buildMerkleSnapshot(participants);
 
     // 4️⃣ create root
     const merkleRoot = await createMerkleRoot({
@@ -50,7 +114,7 @@ export const rebuildAndSync = async (): Promise<RebuildResult> => {
       totalAmountWei: snapshot.totalAmountWei,
     });
 
-    // 5️⃣ save proofs
+    // 5️⃣ save proofs ✅ (مطابق لـ saveMerkleProofs)
     await saveMerkleProofs(merkleRoot.id, snapshot.proofs);
 
     // 6️⃣ push root onchain
