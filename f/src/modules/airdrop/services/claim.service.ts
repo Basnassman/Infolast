@@ -1,120 +1,64 @@
-import {
-  createClaim,
-} from "@modules/airdrop/repositories/claim.repository";
-
-import {
-  validateClaim,
-} from "@modules/airdrop/services/claim-validation.service";
-
-import {
-  syncClaimTransaction,
-} from "@modules/airdrop/services/claim-sync.service";
-
+import { createClaim } from "@modules/airdrop/repositories/claim.repository";
+import { validateClaim } from "@modules/airdrop/services/claim-validation.service";
+import { syncClaimTransaction } from "@modules/airdrop/services/claim-sync.service";
 import { prisma } from "@core/db/prisma";
 
-export const getClaimStatus =
-  async (
-    walletAddress: string
-  ) => {
-    const normalized =
-      walletAddress.toLowerCase();
+export const getClaimStatus = async (walletAddress: string) => {
+  const normalized = walletAddress.toLowerCase();
+  const validation = await validateClaim(normalized);
 
-    const validation =
-      await validateClaim(
-        normalized
-      );
+  const user = await prisma.user.findUnique({
+    where: { walletAddress: normalized },
+    select: { id: true },
+  });
 
-    const user =
-      await prisma.user.findUnique({
-        where: {
-          walletAddress:
-            normalized,
-        },
+  if (!user) return { eligible: false };
 
-        select: {
-          id: true,
-        },
-      });
+  const claims = await prisma.distributionClaim.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-    if (!user) {
-      return {
-        eligible: false,
-      };
-    }
-
-    const claims =
-      await prisma.distributionClaim.findMany({
-        where: {
-          userId: user.id,
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-    return {
-      eligible:
-        validation.valid,
-
-      amountWei:
-        validation.amountWei ||
-        "0",
-
-      proof:
-        validation.proof || [],
-
-      claims,
-    };
+  return {
+    eligible: validation.valid,
+    amountWei: validation.amountWei || "0",
+    proof: validation.proof || [],
+    claims,
   };
+};
 
-export const recordClaim =
-  async (
-    walletAddress: string,
-    txHash: string
-  ) => {
-    const validation =
-      await validateClaim(
-        walletAddress
-      );
+export const recordClaim = async (walletAddress: string, txHash: string) => {
+  const validation = await validateClaim(walletAddress);
 
-    if (!validation.valid) {
-      throw new Error(
-        validation.reason
-      );
-    }
+  if (!validation.valid) {
+    throw new Error(validation.reason);
+  }
 
-    const user =
-      await prisma.user.findUnique({
-        where: {
-          walletAddress:
-            walletAddress.toLowerCase(),
-        },
-      });
+  const user = await prisma.user.findUnique({
+    where: { walletAddress: walletAddress.toLowerCase() },
+  });
 
-    if (!user) {
-      throw new Error(
-        "User not found"
-      );
-    }
+  if (!user) {
+    throw new Error("User not found");
+  }
 
-    const claim =
-      await createClaim({
-        userId: user.id,
+  // ✅ إصلاح: استخدام airdropParticipantId بدلاً من merkleRootId
+  const airdropParticipant = await prisma.airdropParticipant.findUnique({
+    where: { userId: user.id },
+  });
 
-        merkleRootId:
-          validation.merkleRootId!,
+  if (!airdropParticipant) {
+    throw new Error("Airdrop participant not found");
+  }
 
-        txHash,
+  const claim = await createClaim({
+    userId: user.id,
+    airdropParticipantId: airdropParticipant.id, // ✅ تم التعديل
+    txHash,
+    amountWei: validation.amountWei!,
+  });
 
-        amountWei:
-          validation.amountWei!,
-      });
+  await syncClaimTransaction(claim.id, txHash);
 
-    await syncClaimTransaction(
-      claim.id,
-      txHash
-    );
-
-    return claim;
-  };
+  return claim;
+};
