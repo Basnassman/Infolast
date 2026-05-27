@@ -8,10 +8,11 @@ export const createMerkleRoot = async (data: {
   txHash?: string | null;
   ipfsSnapshotUrl?: string | null;
 }) => {
+  // تعطيل الجذور النشطة السابقة
   await prisma.merkleRoot.updateMany({
     where: {
       distributionType: DistributionType.AIRDROP,
-      isActive: true,
+      isActive: true,             // ✅ Boolean
     },
     data: {
       isActive: false,
@@ -20,12 +21,12 @@ export const createMerkleRoot = async (data: {
 
   return prisma.merkleRoot.create({
     data: {
-      distributionType: DistributionType.AIRDROP,
-      root: data.root,
+      distributionType: DistributionType.AIRDROP,  // ✅ Enum
+      root: data.root,                             // ✅ @unique
       eligibleCount: data.eligibleCount,
       totalAmountWei: data.totalAmountWei,
-      txHash: data.txHash ?? null,
-      ipfsSnapshotUrl: data.ipfsSnapshotUrl ?? null,
+      txHash: data.txHash ?? null,                 // ✅ String? (optional)
+      ipfsSnapshotUrl: data.ipfsSnapshotUrl ?? null, // ✅ String? (optional)
       isActive: true,
     },
   });
@@ -36,12 +37,8 @@ export const updateMerkleRootTxHash = async (
   txHash: string
 ) => {
   return prisma.merkleRoot.update({
-    where: {
-      id: merkleRootId,
-    },
-    data: {
-      txHash,
-    },
+    where: { id: merkleRootId },
+    data: { txHash },             // ✅ String?
   });
 };
 
@@ -49,20 +46,14 @@ export const getActiveMerkleRoot = async () => {
   return prisma.merkleRoot.findFirst({
     where: {
       distributionType: DistributionType.AIRDROP,
-      isActive: true,
+      isActive: true,             // ✅ Boolean
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
   });
 };
 
-export const findMerkleRootByRoot = async (
-  root: string
-) => {
+export const findMerkleRootByRoot = async (root: string) => {
   return prisma.merkleRoot.findUnique({
-    where: {
-      root,
-    },
+    where: { root },              // ✅ @unique
   });
 };
