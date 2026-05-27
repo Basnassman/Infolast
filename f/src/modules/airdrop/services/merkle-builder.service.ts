@@ -1,14 +1,14 @@
 import {
   buildMerkleTree,
-  AirdropMerkleEntry,
+  AirdropEntry,
 } from "@modules/airdrop/merkle/tree.service";
 
 import {
-  generateAllProofs,
+  generateAllProofs, 
 } from "@modules/airdrop/merkle/proof.service";
 
 import {
-  AirdropParticipantWithUser,
+  AirdropParticipantView,
 } from "@modules/airdrop/domain/airdrop.types";
 
 const CHAIN_ID = 11155111;
@@ -16,11 +16,12 @@ const CHAIN_ID = 11155111;
 export interface MerkleSnapshot {
   root: string;
 
-  entries: AirdropMerkleEntry[];
+  entries: AirdropEntry[];
+  
 
   proofs: {
     walletAddress: string;
-    proof: string[];
+    proofs: string[];
     leaf: string;
     amountWei: string;
   }[];
@@ -31,9 +32,9 @@ export interface MerkleSnapshot {
 }
 
 export const buildMerkleSnapshot = (
-  participants: AirdropParticipantWithUser[]
+  participants: AirdropParticipantView[]
 ): MerkleSnapshot => {
-  const entries: AirdropMerkleEntry[] =
+  const entries: AirdropEntry[] =
     participants.map((participant) => ({
       walletAddress:
         participant.user.walletAddress.toLowerCase(),
