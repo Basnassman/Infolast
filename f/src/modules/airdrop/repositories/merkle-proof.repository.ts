@@ -9,33 +9,29 @@ export const saveMerkleProofs = async (
     amountWei: string;
   }[]
 ) => {
-  if (proofs.length === 0) {
-    return;
-  }
+  if (proofs.length === 0) return;
 
   await prisma.merkleProof.createMany({
     data: proofs.map((proof) => ({
       merkleRootId,
       walletAddress: proof.walletAddress,
-      proof: proof.proof,
+      proof: proof.proof,        // ✅ Json - مطابق
       leaf: proof.leaf,
       amountWei: proof.amountWei,
     })),
   });
 };
 
-export const getWalletProof = async (
-  walletAddress: string
-) => {
+export const getWalletProof = async (walletAddress: string) => {
   return prisma.merkleProof.findFirst({
     where: {
       walletAddress: walletAddress.toLowerCase(),
       merkleRoot: {
-        isActive: true,
+        isActive: true,           // ✅ isActive في MerkleRoot
       },
     },
     include: {
-      merkleRoot: true,
+      merkleRoot: true,           // ✅ relation موجودة
     },
     orderBy: {
       createdAt: "desc",
