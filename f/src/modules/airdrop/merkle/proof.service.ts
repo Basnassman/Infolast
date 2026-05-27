@@ -1,12 +1,5 @@
-import {
-  hashLeaf,
-  normalizeWallet,
-} from "@modules/airdrop/merkle/hash.service";
-
-import {
-  buildMerkleTree,
-  AirdropEntry,
-} from "@modules/airdrop/merkle/tree.service";
+import { hashLeaf, normalizeWallet } from "@modules/airdrop/merkle/hash.service";
+import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service";
 
 const DEFAULT_CHAIN_ID = 11155111;
 
@@ -16,32 +9,17 @@ export interface ProofResult {
   root: string;
 }
 
-/**
- * Validate duplicate wallets
- */
-const validateUniqueWallets = (
-  entries: AirdropEntry[]
-) => {
-  const wallets =
-    new Set<string>();
-
+const validateUniqueWallets = (entries: AirdropEntry[]) => {
+  const wallets = new Set<string>();
   for (const entry of entries) {
-    const normalized =
-      normalizeWallet(entry.wallet);
-
+    const normalized = normalizeWallet(entry.walletAddress); // ✅ إصلاح: walletAddress
     if (wallets.has(normalized)) {
-      throw new Error(
-        `Duplicate wallet detected: ${normalized}`
-      );
+      throw new Error(`Duplicate wallet detected: ${normalized}`);
     }
-
     wallets.add(normalized);
   }
 };
 
-/**
- * 🧾 Generate proof for one user
- */
 export const generateProof = (
   wallet: string,
   amount: string | number | bigint,
@@ -50,120 +28,45 @@ export const generateProof = (
 ): ProofResult | null => {
   validateUniqueWallets(allEntries);
 
-  const result =
-    buildMerkleTree(
-      allEntries,
-      chainId
-    );
+  const result = buildMerkleTree(allEntries, chainId);
+  if (!result) return null;
 
-  if (!result) {
-    return null;
-  }
+  const { tree, root } = result;
 
-  const {
-    tree,
-    root,
-  } = result;
+  const normalizedWallet = normalizeWallet(wallet);
+  const leaf = hashLeaf(normalizedWallet, amount, chainId);
+  const leafBuffer = Buffer.from(leaf.slice(2), "hex");
 
-  const normalizedWallet =
-    normalizeWallet(wallet);
+  const proof = tree
+    .getProof(leafBuffer)
+    .map((p: any) => "0x" + p.data.toString("hex"));
 
-  const leaf =
-    hashLeaf(
-      normalizedWallet,
-      amount,
-      chainId
-    );
-
-  const leafBuffer =
-    Buffer.from(
-      leaf.slice(2),
-      "hex"
-    );
-
-  const proof =
-    tree
-      .getProof(leafBuffer)
-      .map(
-        (p: any) =>
-          "0x" +
-          p.data.toString("hex")
-      );
-
-  return {
-    leaf,
-    proof,
-    root,
-  };
+  return { leaf, proof, root };
 };
 
-/**
- * 🧾 Generate proofs for all users
- *
- * Returns:
- * Map<wallet, ProofResult>
- */
 export const generateAllProofs = (
   allEntries: AirdropEntry[],
   chainId: number = DEFAULT_CHAIN_ID
 ): Map<string, ProofResult> => {
   validateUniqueWallets(allEntries);
 
-  const result =
-    buildMerkleTree(
-      allEntries,
-      chainId
-    );
+  const result = buildMerkleTree(allEntries, chainId);
+  if (!result) return new Map();
 
-  if (!result) {
-    return new Map();
-  }
+  const { tree, root } = result;
 
-  const {
-    tree,
-    root,
-  } = result;
-
-  const proofs =
-    new Map<
-      string,
-      ProofResult
-    >();
+  const proofs = new Map<string, ProofResult>();
 
   for (const entry of allEntries) {
-    const normalizedWallet =
-      normalizeWallet(entry.wallet);
+    const normalizedWallet = normalizeWallet(entry.walletAddress); // ✅ إصلاح: walletAddress
+    const leaf = hashLeaf(normalizedWallet, entry.amountWei, chainId); // ✅ إصلاح: amountWei
+    const leafBuffer = Buffer.from(leaf.slice(2), "hex");
 
-    const leaf =
-      hashLeaf(
-        normalizedWallet,
-        entry.amount,
-        chainId
-      );
+    const proof = tree
+      .getProof(leafBuffer)
+      .map((p: any) => "0x" + p.data.toString("hex"));
 
-    const leafBuffer =
-      Buffer.from(
-        leaf.slice(2),
-        "hex"
-      );
-
-    const proof =
-      tree
-        .getProof(leafBuffer)
-        .map(
-          (p: any) =>
-            "0x" +
-            p.data.toString("hex")
-        );
-
-    proofs.set(
-      normalizedWallet,
-      {
-        leaf,
-        proof,
-        root,
-      }
-    );
+    proofs.set(normalizedWallet, { leaf, proof, root });
   }
 
   return proofs;
