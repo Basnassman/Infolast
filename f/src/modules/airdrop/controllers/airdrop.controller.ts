@@ -1,8 +1,11 @@
-// src/modules/airdrop/controllers/airdrop.controller.ts
-
 import { Request, Response } from "express";
 import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
+
+// ✅ جميع الـ normalizers موجودة الآن!
+import { normalizeClaim } from "@core/api/normalizers/claim.normalizer";
+import { normalizeMerkleProof, normalizeMerkleRoot } from "@core/api/normalizers/merkle.normalizer";
+import { normalizeParticipant } from "@core/api/normalizers/participant.normalizer";
 
 import {
   getAirdropEligibility,
@@ -23,13 +26,7 @@ export const getEligibilityController = asyncHandler(
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
     const eligibility = await getAirdropEligibility(walletAddress);
 
-    // ✅ إرجاع مباشر بدلاً من normalizeParticipant
-    return successResponse(res, {
-      eligible: eligibility.eligible,
-      amountWei: eligibility.amountWei,
-      proof: eligibility.proof,
-      claims: eligibility.claims,
-    });
+    return successResponse(res, normalizeParticipant(eligibility));
   }
 );
 
@@ -38,14 +35,7 @@ export const claimAirdropController = asyncHandler(
     const { walletAddress, txHash } = req.body;
     const claim = await recordClaim(walletAddress, txHash);
 
-    return successResponse(res, {
-      id: claim.id,
-      userId: claim.userId,
-      amountWei: claim.amountWei,
-      status: claim.status,
-      txHash: claim.txHash,
-      createdAt: claim.createdAt,
-    });
+    return successResponse(res, normalizeClaim(claim));
   }
 );
 
@@ -54,12 +44,7 @@ export const getClaimStatusController = asyncHandler(
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
     const status = await getClaimStatus(walletAddress);
 
-    return successResponse(res, {
-      eligible: status.eligible,
-      amountWei: status.amountWei,
-      proof: status.proof,
-      claims: status.claims,
-    });
+    return successResponse(res, normalizeClaim(status));
   }
 );
 
@@ -68,17 +53,7 @@ export const getMerkleProofController = asyncHandler(
     const walletAddress = String(req.query.walletAddress);
     const proof = await getWalletProof(walletAddress);
 
-    // ✅ التحقق من وجود proof
-    if (!proof) {
-      return successResponse(res, null);
-    }
-
-    return successResponse(res, {
-      walletAddress: proof.walletAddress,
-      amountWei: proof.amountWei,
-      leaf: proof.leaf,
-      merkleRoot: proof.merkleRoot,
-    });
+    return successResponse(res, normalizeMerkleProof(proof));
   }
 );
 
@@ -86,14 +61,7 @@ export const getAirdropStatsController = asyncHandler(
   async (_req: Request, res: Response) => {
     const stats = await getAirdropStats();
 
-    return successResponse(res, {
-      totalUsers: stats.totalUsers,
-      participants: stats.participants,
-      claims: stats.claims,
-      activeRoot: stats.activeRoot,
-      eligibleCount: stats.eligibleCount,
-      totalAmountWei: stats.totalAmountWei,
-    });
+    return successResponse(res, normalizeMerkleRoot(stats));
   }
 );
 
