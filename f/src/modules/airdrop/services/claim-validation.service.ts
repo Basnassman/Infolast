@@ -50,6 +50,13 @@ export const validateClaim = async (
     return { valid: false, reason: "Invalid allocation" };
   }
 
+  if (
+    !Array.isArray(proof.proof) ||
+    !proof.proof.every((item) => typeof item === "string")
+  ) {
+    return { valid: false, reason: "Invalid merkle proof data" };
+  }
+
   // ✅ إصلاح: التحقق من المطالبة عبر airdropParticipantId وليس merkleRootId
   const airdropParticipant = await prisma.airdropParticipant.findUnique({
     where: { userId: user.id },
@@ -61,7 +68,7 @@ export const validateClaim = async (
       userId: user.id,
       airdropParticipantId: airdropParticipant?.id,
       status: {
-        in: [ClaimStatus.PENDING, ClaimStatus.CLAIMED], // ✅ إصلاح: CLAIMED وليس COMPLETED
+        in: [ClaimStatus.PENDING, ClaimStatus.CLAIMED],
       },
     },
   });
@@ -71,7 +78,7 @@ export const validateClaim = async (
   }
 
   // 5️⃣ verify proof
-  const verified = verifyProof(activeRoot.root, proof.leaf, proof.proof);
+  const verified = verifyProof(activeRoot.root, proof.leaf, proof.proof as string[]);
 
   if (!verified) {
     return { valid: false, reason: "Invalid merkle proof" };

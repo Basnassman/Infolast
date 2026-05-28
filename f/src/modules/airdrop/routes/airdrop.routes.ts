@@ -12,9 +12,8 @@ import {
   getAirdropStats,
 } from "@modules/airdrop/controllers/airdrop.controller";
 
-// ⚠️ هذه الملفات غير موجودة في الهيكل - يجب إنشاؤها أو إزالتها
 import { eligibilitySchema } from "@modules/airdrop/dto/eligibility.dto";
-import { proofSchema } from "@modules/airdrop/dto/proof.dto";
+import { proofRequestSchema } from "@modules/airdrop/dto/proof.dto";
 import { claimAirdropSchema } from "@modules/airdrop/dto/claim-airdrop.dto";
 
 const router = Router();
@@ -22,35 +21,35 @@ const router = Router();
 router.get(
   "/eligibility",
   walletRateLimit,
-  // validateRequest(eligibilitySchema), // ⚠️ schema غير موجود
-  asyncHandler(checkEligibility)
+  // validateRequest(eligibilitySchema),
+  checkEligibility
 );
 
 router.get(
   "/proof",
   walletRateLimit,
-  // validateRequest(proofSchema),
-  asyncHandler(getProof)
+  // validateRequest(proofRequestSchema),
+  getProof
 );
 
 router.get(
   "/claim-status",
   walletRateLimit,
   // validateRequest(eligibilitySchema),
-  asyncHandler(getClaimStatus)
+  getClaimStatus
 );
 
 router.post(
   "/claim",
   authenticateWallet,
   // validateRequest(claimAirdropSchema),
-  asyncHandler(claimAirdrop)
+  claimAirdrop
 );
 
 router.get(
   "/stats",
   walletRateLimit,
-  asyncHandler(getAirdropStats)
+  getAirdropStats
 );
 
 export default router;

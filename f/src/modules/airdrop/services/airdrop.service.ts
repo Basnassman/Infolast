@@ -4,7 +4,6 @@ import {
 
 import {
   DistributionType,
-  MerkleRootStatus,
 } from "@prisma/client";
 
 import {
@@ -62,8 +61,7 @@ export const getAirdropStats =
           distributionType:
             DistributionType.AIRDROP,
 
-          status:
-            MerkleRootStatus.ACTIVE,
+          isActive: true,
         },
 
         orderBy: {

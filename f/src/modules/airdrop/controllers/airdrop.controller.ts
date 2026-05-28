@@ -9,12 +9,12 @@ import { normalizeParticipant } from "@core/api/normalizers/participant.normaliz
 
 import {
   getAirdropEligibility,
-  getAirdropStats,
+  getAirdropStats as getAirdropStatsService,
 } from "@modules/airdrop/services/airdrop.service";
 
 import {
   recordClaim,
-  getClaimStatus,
+  getClaimStatus as getClaimStatusService,
 } from "@modules/airdrop/services/claim.service";
 
 import {
@@ -42,7 +42,7 @@ export const claimAirdropController = asyncHandler(
 export const getClaimStatusController = asyncHandler(
   async (req: Request, res: Response) => {
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
-    const status = await getClaimStatus(walletAddress);
+    const status = await getClaimStatusService(walletAddress);
 
     return successResponse(res, normalizeClaim(status));
   }
@@ -59,7 +59,7 @@ export const getMerkleProofController = asyncHandler(
 
 export const getAirdropStatsController = asyncHandler(
   async (_req: Request, res: Response) => {
-    const stats = await getAirdropStats();
+    const stats = await getAirdropStatsService();
 
     return successResponse(res, normalizeMerkleRoot(stats));
   }

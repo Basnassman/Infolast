@@ -1,13 +1,10 @@
-import "express";
+/// <reference types="express" />
 
 declare global {
   namespace Express {
     interface Request {
-      requestId: string;
-
-      auth: {
-        walletAddress: string;
-      };
+      requestId?: string;
+      walletAddress?: string;
     }
   }
 }

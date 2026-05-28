@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "ignoreDeprecations": "6.0",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "rootDir": "./src",
     "baseUrl": "./src",
     "paths": {
@@ -11,14 +10,16 @@
       "@modules/*": ["modules/*"],
       "@docs/*": ["docs/*"],
       "@shared/*": ["shared/*"],
-      "@src/*": ["*"]
+      "@src/*": ["./*"]
     },
     "outDir": "./dist",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "files": ["src/shared/types/express.d.ts"]
 }
