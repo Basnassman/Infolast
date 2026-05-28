@@ -26,12 +26,16 @@ export const normalizeParticipant = (
   // ✅ التحقق من نوع البيانات
   const isEligibilityResult = participant?.eligible !== undefined;
   const isParticipant = participant?.user !== undefined;
+  const walletAddress = 
+    participant?.walletAddress || 
+    participant?.user?.walletAddress || 
+    null;
 
   // ✅ إذا كان EligibilityResult
   if (isEligibilityResult) {
     return {
       id: null,
-      walletAddress: null,
+      walletAddress,
       userStatus: null,
       participantStatus: null,
       points: 0,
