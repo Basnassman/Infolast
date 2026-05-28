@@ -1,93 +1,42 @@
-import {
-  prisma,
-} from "@core/db/prisma";
+import { prisma } from "@core/db/prisma";
+import { DistributionType } from "@prisma/client";
+import { getClaimStatus } from "@modules/airdrop/services/claim.service";
 
-import {
-  DistributionType,
-} from "@prisma/client";
+export const getAirdropEligibility = async (walletAddress: string) => {
+  const normalized = walletAddress.toLowerCase();
+  const status = await getClaimStatus(normalized);
 
-import {
-  getClaimStatus,
-} from "@modules/airdrop/services/claim.service";
-
-export const getAirdropEligibility =
-  async (
-    walletAddress: string
-  ) => {
-    const normalized =
-      walletAddress.toLowerCase();
-
-    const status =
-      await getClaimStatus(
-        normalized
-      );
-
-    return {
-      eligible:
-        status.eligible,
-
-      amountWei:
-        status.amountWei,
-
-      proof:
-        status.proof,
-
-      claims:
-        status.claims,
-    };
+  return {
+    walletAddress: normalized, // ✅ إضافة
+    eligible: status.eligible,
+    amountWei: status.amountWei,
+    proof: status.proof,
+    claims: status.claims,
   };
+};
 
-export const getAirdropStats =
-  async () => {
-    const [
-      users,
-      participants,
-      claims,
-      activeRoot,
-    ] = await Promise.all([
-      prisma.user.count(),
+export const getAirdropStats = async () => {
+  const [users, participants, claims, activeRoot] = await Promise.all([
+    prisma.user.count(),
+    prisma.airdropParticipant.count(),
+    prisma.distributionClaim.count({
+      where: { distributionType: DistributionType.AIRDROP },
+    }),
+    prisma.merkleRoot.findFirst({
+      where: {
+        distributionType: DistributionType.AIRDROP,
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
-      prisma.airdropParticipant.count(),
-
-      prisma.distributionClaim.count({
-        where: {
-          distributionType:
-            DistributionType.AIRDROP,
-        },
-      }),
-
-      prisma.merkleRoot.findFirst({
-        where: {
-          distributionType:
-            DistributionType.AIRDROP,
-
-          isActive: true,
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
-    ]);
-
-    return {
-      totalUsers:
-        users,
-
-      participants,
-
-      claims,
-
-      activeRoot:
-        activeRoot?.root ||
-        null,
-
-      eligibleCount:
-        activeRoot?.eligibleCount ||
-        0,
-
-      totalAmountWei:
-        activeRoot?.totalAmountWei ||
-        "0",
-    };
+  return {
+    totalUsers: users,
+    participants,
+    claims,
+    activeRoot: activeRoot?.root || null,
+    eligibleCount: activeRoot?.eligibleCount || 0,
+    totalAmountWei: activeRoot?.totalAmountWei || "0",
   };
+};
