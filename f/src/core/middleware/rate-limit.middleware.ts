@@ -6,9 +6,9 @@ import {
 
 import {
   ApiError,
-} from "@core/contracts-api/error.contract";
+} from "../../core/contracts-api/error.contract";
 
-import { env } from "@core/config/env";
+import { env } from "../../core/config/env";
 
 export interface RateLimitOptions {
   windowMs: number;

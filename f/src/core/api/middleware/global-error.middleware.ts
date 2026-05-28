@@ -14,35 +14,35 @@ import {
 
 import {
   AppError,
-} from "@core/api/exceptions/app.error";
+} from "../../api/exceptions/app.error";
 
 import {
   ValidationError,
-} from "@core/api/exceptions/validation.error";
+} from "../../api/exceptions/validation.error";
 
 import {
   ConflictError,
-} from "@core/api/exceptions/conflict.error";
+} from "../../api/exceptions/conflict.error";
 
 import {
   NotFoundError,
-} from "@core/api/exceptions/not-found.error";
+} from "../../api/exceptions/not-found.error";
 
 import {
   UnauthorizedError,
-} from "@core/api/exceptions/unauthorized.error";
+} from "../../api/exceptions/unauthorized.error";
 
 import {
   ForbiddenError,
-} from "@core/api/exceptions/forbidden.error";
+} from "../../api/exceptions/forbidden.error";
 
 import {
   BlockchainError,
-} from "@core/api/exceptions/blockchain.error";
+} from "../../api/exceptions/blockchain.error";
 
 import {
   errorResponse,
-} from "@core/api/responses/error.response";
+} from "../../api/responses/error.response";
 
 const isProduction =
   process.env.NODE_ENV === "production";

@@ -3,7 +3,7 @@ import { Request } from "express";
 import {
   normalizeAddress,
   verifySignature,
-} from "@core/auth/signature.service";
+} from "../auth/signature.service";
 
 export type AuthWallet =
   {

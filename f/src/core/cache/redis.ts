@@ -1,6 +1,6 @@
 import IORedis from "ioredis";
 
-import { env } from "@core/config/env";
+import { env } from "../config/env";
 
 export const redis =
   new IORedis(

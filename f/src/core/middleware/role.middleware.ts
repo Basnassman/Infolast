@@ -6,14 +6,14 @@ import {
 
 import {
   ApiError,
-} from "@core/contracts-api/error.contract";
+} from "../../core/contracts-api/error.contract";
 
 import {
   isAdmin,
   isGov,
   isOperator,
   isDepositor,
-} from "@core/auth/role.service";
+} from "../../core/auth/role.service";
 
 export type RoleType =
   | "ADMIN"

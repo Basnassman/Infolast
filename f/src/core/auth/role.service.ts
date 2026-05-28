@@ -2,11 +2,11 @@ import { ethers } from "ethers";
 
 import {
   airdropReadContract,
-} from "@core/blockchain/contracts/airdrop-read.contract";
+} from "../blockchain/contracts/airdrop-read.contract";
 
 import {
   normalizeAddress,
-} from "@core/auth/signature.service";
+} from "../auth/signature.service";
 
 export const GOVERNANCE_ROLE =
   ethers.keccak256(

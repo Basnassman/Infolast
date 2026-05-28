@@ -4,7 +4,7 @@ import {
 
 import {
   ApiError,
-} from "@core/contracts-api/error.contract";
+} from "../../contracts-api/error.contract";
 
 export const errorResponse =
   (

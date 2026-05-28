@@ -11,7 +11,7 @@ import {
 
 import {
   ApiError,
-} from "@core/contracts-api/error.contract";
+} from "../../core/contracts-api/error.contract";
 
 export const validateRequest =
   <T>(
