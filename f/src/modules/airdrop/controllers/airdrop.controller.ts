@@ -1,20 +1,17 @@
+// src/modules/airdrop/controllers/airdrop.controller.ts
+
 import { Request, Response } from "express";
 import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
 
-// ✅ جميع الـ normalizers موجودة الآن!
-import { normalizeClaim } from "@core/api/normalizers/claim.normalizer";
-import { normalizeMerkleProof, normalizeMerkleRoot } from "@core/api/normalizers/merkle.normalizer";
-import { normalizeParticipant } from "@core/api/normalizers/participant.normalizer";
-
 import {
   getAirdropEligibility,
-  getAirdropStats as getAirdropStatsService,
+  getAirdropStats,
 } from "@modules/airdrop/services/airdrop.service";
 
 import {
   recordClaim,
-  getClaimStatus as getClaimStatusService,
+  getClaimStatus,
 } from "@modules/airdrop/services/claim.service";
 
 import {
@@ -26,7 +23,13 @@ export const getEligibilityController = asyncHandler(
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
     const eligibility = await getAirdropEligibility(walletAddress);
 
-    return successResponse(res, normalizeParticipant(eligibility));
+    // ✅ إرجاع مباشر بدلاً من normalizeParticipant
+    return successResponse(res, {
+      eligible: eligibility.eligible,
+      amountWei: eligibility.amountWei,
+      proof: eligibility.proof,
+      claims: eligibility.claims,
+    });
   }
 );
 
@@ -35,16 +38,28 @@ export const claimAirdropController = asyncHandler(
     const { walletAddress, txHash } = req.body;
     const claim = await recordClaim(walletAddress, txHash);
 
-    return successResponse(res, normalizeClaim(claim));
+    return successResponse(res, {
+      id: claim.id,
+      userId: claim.userId,
+      amountWei: claim.amountWei,
+      status: claim.status,
+      txHash: claim.txHash,
+      createdAt: claim.createdAt,
+    });
   }
 );
 
 export const getClaimStatusController = asyncHandler(
   async (req: Request, res: Response) => {
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
-    const status = await getClaimStatusService(walletAddress);
+    const status = await getClaimStatus(walletAddress);
 
-    return successResponse(res, normalizeClaim(status));
+    return successResponse(res, {
+      eligible: status.eligible,
+      amountWei: status.amountWei,
+      proof: status.proof,
+      claims: status.claims,
+    });
   }
 );
 
@@ -53,15 +68,32 @@ export const getMerkleProofController = asyncHandler(
     const walletAddress = String(req.query.walletAddress);
     const proof = await getWalletProof(walletAddress);
 
-    return successResponse(res, normalizeMerkleProof(proof));
+    // ✅ التحقق من وجود proof
+    if (!proof) {
+      return successResponse(res, null);
+    }
+
+    return successResponse(res, {
+      walletAddress: proof.walletAddress,
+      amountWei: proof.amountWei,
+      leaf: proof.leaf,
+      merkleRoot: proof.merkleRoot,
+    });
   }
 );
 
 export const getAirdropStatsController = asyncHandler(
   async (_req: Request, res: Response) => {
-    const stats = await getAirdropStatsService();
+    const stats = await getAirdropStats();
 
-    return successResponse(res, normalizeMerkleRoot(stats));
+    return successResponse(res, {
+      totalUsers: stats.totalUsers,
+      participants: stats.participants,
+      claims: stats.claims,
+      activeRoot: stats.activeRoot,
+      eligibleCount: stats.eligibleCount,
+      totalAmountWei: stats.totalAmountWei,
+    });
   }
 );
 
