@@ -71,6 +71,28 @@ enum RiskLevel {
   CRITICAL
 }
 
+enum TaskStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REVIEW
+}
+
+enum TaskType {
+  SOCIAL
+  VIDEO
+  ARTICLE
+  REFERRAL
+}
+
+enum TaskPlatform {
+  X
+  TELEGRAM
+  YOUTUBE
+  DISCORD
+  ARTICLE
+}
+
 // =====================================================
 // USER DOMAIN
 // =====================================================
@@ -261,6 +283,51 @@ model MerkleJob {
 
   @@index([status])
   @@index([distributionType])
+}
+
+// =====================================================
+// TASK DOMAIN
+// =======================================
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  points      Int
+  platform    TaskPlatform
+  type        TaskType     @default(SOCIAL)
+  url         String?
+  isActive    Boolean      @default(true)
+  maxSubmissions Int       @default(1)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  userTasks   UserTask[]
+}
+
+model UserTask {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId      String
+  task        Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  status      TaskStatus @default(PENDING)
+  rewardGiven Boolean    @default(false)
+  points      Int        @default(0)
+  ip          String?
+  userAgent   String?
+  proof       Json?
+  completedAt DateTime?
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([userId, taskId])
+  @@index([userId])
+  @@index([taskId])
+  @@index([status])
 }
 
 // =====================================================
