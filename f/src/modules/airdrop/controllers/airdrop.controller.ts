@@ -10,7 +10,7 @@ import { getWalletProof } from "@modules/airdrop/repositories/merkle-proof.repos
 
 // ─── Eligibility ────────────────────────────────────────────────────────────
 // ✅ إزالة: getAirdropEligibility المكررة
-// ✅ استخدام: getClaimStatus مباشرة
+// ✅ استخدام: getClaimStatus مباشرة من claim.service.ts
 export const getEligibilityController = asyncHandler(
   async (req: Request, res: Response) => {
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
