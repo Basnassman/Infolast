@@ -1,3 +1,6 @@
+import { prisma } from "@core/db/prisma";
+import { DistributionType } from "@prisma/client";
+
 export const getAirdropStats = async () => {
   const [users, participants, claims, activeRoot, totalPoints] = await Promise.all([
     prisma.user.count(),
@@ -12,7 +15,7 @@ export const getAirdropStats = async () => {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // ✅ إضافة
+    // ✅ إضافة: إجمالي النقاط
     prisma.airdropParticipant.aggregate({
       _sum: { points: true },
     }),
