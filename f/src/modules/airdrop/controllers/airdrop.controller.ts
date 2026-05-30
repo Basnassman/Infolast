@@ -63,9 +63,7 @@ export const getAirdropStatsController = asyncHandler(
   }
 );
 
-// ─── Aliases ────────────────────────────────────────────────────────────────
+// ─── Aliases (غير متعارضة) ─────────────────────────────────────────────────
 export const checkEligibility = getEligibilityController;
 export const getProof = getMerkleProofController;
 export const claimAirdrop = claimAirdropController;
-export const getClaimStatusHandler = getClaimStatusController;
-export const getAirdropStatsHandler = getAirdropStatsController;
