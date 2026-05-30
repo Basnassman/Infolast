@@ -8,8 +8,8 @@ import {
   checkEligibility,
   getProof,
   claimAirdrop,
-  getClaimStatus,
-  getAirdropStats,
+  getClaimStatusController,
+  getAirdropStatsController,
 } from "@modules/airdrop/controllers/airdrop.controller";
 
 import { eligibilitySchema } from "@modules/airdrop/dto/eligibility.dto";
