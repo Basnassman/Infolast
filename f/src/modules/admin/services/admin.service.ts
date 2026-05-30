@@ -1,127 +1,129 @@
 import { prisma } from "@core/db/prisma";
-import { DistributionType } from "@prisma/client";
+import { DistributionType, TaskStatus } from "@prisma/client";
+import { taskRepository } from "@modules/tasks/repositories/task.repository";
+import { userTaskRepository } from "@modules/tasks/repositories/user-task.repository";
+import { distributeReward } from "@modules/tasks/services/rewards/reward.service";
+import { taskEventEmitter } from "@modules/tasks/events/task.events";
+
+// ─── Merkle Jobs ────────────────────────────────────────────────────────────
 
 export const getMerkleJobs = async () => {
   return prisma.merkleJob.findMany({
-    where: {
-      distributionType: DistributionType.AIRDROP,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
+    where: { distributionType: DistributionType.AIRDROP },
+    orderBy: { createdAt: "desc" },
     take: 50,
   });
 };
 
-export const taskAdminService = {
-  async createTask(data: CreateTaskInput): Promise<Task> {
-    const task = await taskRepository.create(data);
-    taskEventEmitter.emit("task.created", { taskId: task.id });
-    return task;
-  },
+// ─── Task Management ────────────────────────────────────────────────────────
 
-  async updateTask(id: string, data: UpdateTaskInput): Promise<Task> {
-    const task = await taskRepository.update(id, data);
-    taskEventEmitter.emit("task.updated", { taskId: task.id });
-    return task;
-  },
+export const createTask = async (data: any) => {
+  const task = await taskRepository.create(data);
+  taskEventEmitter.emit("task.created", { taskId: task.id });
+  return task;
+};
 
-  async deleteTask(id: string): Promise<Task> {
-    const task = await taskRepository.delete(id);
-    taskEventEmitter.emit("task.deleted", { taskId: task.id });
-    return task;
-  },
+export const updateTask = async (id: string, data: any) => {
+  const task = await taskRepository.update(id, data);
+  taskEventEmitter.emit("task.updated", { taskId: task.id });
+  return task;
+};
 
-  async getAllTasks(): Promise<Task[]> {
-    return taskRepository.findAll();
-  },
+export const deleteTask = async (id: string) => {
+  const task = await taskRepository.delete(id);
+  taskEventEmitter.emit("task.deleted", { taskId: task.id });
+  return task;
+};
 
-  async toggleTask(id: string): Promise<Task> {
-    const task = await taskRepository.toggle(id);
-    taskEventEmitter.emit("task.toggled", { taskId: task.id, isActive: task.isActive });
-    return task;
-  },
+export const getAllTasks = async () => {
+  return taskRepository.findAll();
+};
 
-  async approveTask(userTaskId: string, reviewedBy: string): Promise<any> {
-    const userTask = await userTaskRepository.findById(userTaskId);
-    if (!userTask) throw new Error("UserTask not found");
-    if (userTask.status === TaskStatus.VERIFIED) {
-      throw new Error("Task already approved");
-    }
+export const toggleTask = async (id: string) => {
+  const task = await taskRepository.toggle(id);
+  taskEventEmitter.emit("task.toggled", { taskId: task.id, isActive: task.isActive });
+  return task;
+};
 
-    const updated = await userTaskRepository.update(userTaskId, {
-      status: TaskStatus.VERIFIED,
-      completedAt: new Date(),
-      reviewedAt: new Date(),
-      reviewedBy,
-    });
+export const approveTask = async (userTaskId: string, reviewedBy: string) => {
+  const userTask = await userTaskRepository.findById(userTaskId);
+  if (!userTask) throw new Error("UserTask not found");
+  if (userTask.status === TaskStatus.VERIFIED) {
+    throw new Error("Task already approved");
+  }
 
-    const rewardResult = await distributeReward(
-      userTask.userId,
-      userTask.taskId,
-      userTask.task.points
-    );
+  const updated = await userTaskRepository.update(userTaskId, {
+    status: TaskStatus.VERIFIED,
+    completedAt: new Date(),
+    reviewedAt: new Date(),
+    reviewedBy,
+  });
 
-    await userTaskRepository.update(userTaskId, {
-      points: rewardResult.points,
-      rewardGiven: rewardResult.success,
-    });
+  const rewardResult = await distributeReward(
+    userTask.userId,
+    userTask.taskId,
+    userTask.task.points
+  );
 
-    taskEventEmitter.emit("task.approved", {
-      userTaskId,
-      userId: userTask.userId,
-      taskId: userTask.taskId,
-      points: rewardResult.points,
-    });
+  await userTaskRepository.update(userTaskId, {
+    points: rewardResult.points,
+    rewardGiven: rewardResult.success,
+  });
 
-    return {
-      id: updated.id,
-      status: TaskStatus.VERIFIED,
-      points: rewardResult.points,
-      totalPoints: rewardResult.totalPoints,
-      rewardGiven: rewardResult.success,
-    };
-  },
+  taskEventEmitter.emit("task.approved", {
+    userTaskId,
+    userId: userTask.userId,
+    taskId: userTask.taskId,
+    points: rewardResult.points,
+  });
 
-  async rejectTask(userTaskId: string, reviewedBy: string): Promise<any> {
-    const userTask = await userTaskRepository.findById(userTaskId);
-    if (!userTask) throw new Error("UserTask not found");
+  return {
+    id: updated.id,
+    status: TaskStatus.VERIFIED,
+    points: rewardResult.points,
+    totalPoints: rewardResult.totalPoints,
+    rewardGiven: rewardResult.success,
+  };
+};
 
-    const updated = await userTaskRepository.update(userTaskId, {
-      status: TaskStatus.REJECTED,
-      reviewedAt: new Date(),
-      reviewedBy,
-    });
+export const rejectTask = async (userTaskId: string, reviewedBy: string) => {
+  const userTask = await userTaskRepository.findById(userTaskId);
+  if (!userTask) throw new Error("UserTask not found");
 
-    taskEventEmitter.emit("task.rejected", {
-      userTaskId,
-      userId: userTask.userId,
-      taskId: userTask.taskId,
-    });
+  const updated = await userTaskRepository.update(userTaskId, {
+    status: TaskStatus.REJECTED,
+    reviewedAt: new Date(),
+    reviewedBy,
+  });
 
-    return {
-      id: updated.id,
-      status: TaskStatus.REJECTED,
-    };
-  },
+  taskEventEmitter.emit("task.rejected", {
+    userTaskId,
+    userId: userTask.userId,
+    taskId: userTask.taskId,
+  });
 
-  async getReviewQueue(): Promise<any[]> {
-    const queue = await userTaskRepository.findPendingReview();
-    return queue.map((ut) => ({
-      id: ut.id,
-      user: {
-        wallet: ut.user.walletAddress,
-        riskScore: ut.user.riskProfile?.riskScore || 0,
-      },
-      task: {
-        title: ut.task.title,
-        platform: ut.task.platform,
-        points: ut.task.points,
-      },
-      status: ut.status,
-      completedAt: ut.createdAt.toISOString(),
-      ip: ut.ip,
-      userAgent: ut.userAgent,
-    }));
-  },
+  return {
+    id: updated.id,
+    status: TaskStatus.REJECTED,
+  };
+};
+
+export const getReviewQueue = async () => {
+  const queue = await userTaskRepository.findPendingReview();
+  return queue.map((ut) => ({
+    id: ut.id,
+    user: {
+      wallet: ut.user.walletAddress,
+      riskScore: ut.user.riskProfile?.riskScore || 0,
+    },
+    task: {
+      title: ut.task.title,
+      platform: ut.task.platform,
+      points: ut.task.points,
+    },
+    status: ut.status,
+    completedAt: ut.createdAt.toISOString(),
+    ip: ut.ip,
+    userAgent: ut.userAgent,
+  }));
 };
