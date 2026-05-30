@@ -1,29 +1,28 @@
-// src/modules/tasks/controllers/task.controller.ts
-
 import { Request, Response } from "express";
 import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
-import { normalizeTask, normalizeTaskSubmission } from "../normalizers/task.normalizer";
-import {
-  getAvailableTasks,
-  submitTask,
-  getUserTaskHistory,
-} from "../services/task.service";
+import { normalizeTask, normalizeTaskSubmission, normalizeUserTask } from "../normalizers/task.normalizer";
+import { taskService } from "../services/task.service";
 
-// ✅ إزالة asyncHandler من هنا
-export const getTasksController = async (req: Request, res: Response) => {
-  const walletAddress = String(req.query.walletAddress);
-  const tasks = await getAvailableTasks(walletAddress);
+export const getTasksController = asyncHandler(async (req: Request, res: Response) => {
+  const walletAddress = String(req.query.walletAddress || "");
+  const tasks = await taskService.getAvailableTasks(walletAddress);
   return successResponse(res, tasks.map(normalizeTask));
-};
+});
 
-export const submitTaskController = async (req: Request, res: Response) => {
-  const result = await submitTask(req.body);
+export const submitTaskController = asyncHandler(async (req: Request, res: Response) => {
+  const result = await taskService.submitTask({
+    walletAddress: req.body.walletAddress,
+    taskId: req.body.taskId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+    proof: req.body.proof,
+  });
   return successResponse(res, normalizeTaskSubmission(result));
-};
+});
 
-export const getTaskHistoryController = async (req: Request, res: Response) => {
-  const walletAddress = String(req.params.walletAddress);
-  const history = await getUserTaskHistory(walletAddress);
-  return successResponse(res, history.map(normalizeTaskSubmission));
-};
+export const getTaskHistoryController = asyncHandler(async (req: Request, res: Response) => {
+  const walletAddress = String(req.query.walletAddress || req.walletAddress || "");
+  const history = await taskService.getUserTaskHistory(walletAddress);
+  return successResponse(res, history.map(normalizeUserTask));
+});
