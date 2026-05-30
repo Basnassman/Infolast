@@ -1,5 +1,6 @@
 import { prisma } from "@core/db/prisma";
-import { UserStatus } from "@prisma/client";
+import { UserStatus, TaskStatus } from "@prisma/client";
+import { userTaskRepository } from "@modules/tasks/repositories/user-task.repository";
 
 export interface RewardResult {
   success: boolean;
@@ -10,33 +11,29 @@ export interface RewardResult {
 export const distributeReward = async (
   userId: string,
   taskId: string,
-  points: number = 10 // ✅ إضافة: نقاط المهمة
+  points: number
 ): Promise<RewardResult> => {
   return prisma.$transaction(async (tx) => {
-    // ✅ إصلاح: التحقق من UserAuditLog بدلاً من UserTask
-    const auditLog = await tx.userAuditLog.findFirst({
+    // ✅ Source of Truth: UserTask (not UserAuditLog)
+    const userTask = await tx.userTask.findFirst({
       where: {
         userId,
-        action: `TASK_SUBMIT:${taskId}`,
+        taskId,
+        status: TaskStatus.VERIFIED,
       },
     });
 
-    if (!auditLog) {
-      throw new Error("Task record not found");
+    if (!userTask) {
+      throw new Error("Verified UserTask not found");
     }
 
-    const metadata = auditLog.metadata as any;
-    if (metadata?.status !== "VERIFIED") {
-      throw new Error("Task is not verified");
-    }
-
-    if (metadata?.rewardGiven) {
+    if (userTask.rewardGiven) {
       throw new Error("Reward already distributed");
     }
 
-    // ✅ إصلاح: البحث عن participant بـ userId (ليس unique لكن relation)
-    const participant = await tx.airdropParticipant.findUnique({
-      where: { userId }, // ✅ userId @unique في AirdropParticipant
+    // Find or create participant
+    let participant = await tx.airdropParticipant.findUnique({
+      where: { userId },
     });
 
     let totalPoints: number;
@@ -53,7 +50,6 @@ export const distributeReward = async (
         },
       });
     } else {
-      // ✅ إنشاء participant جديد
       totalPoints = points;
 
       await tx.airdropParticipant.create({
@@ -67,15 +63,12 @@ export const distributeReward = async (
       });
     }
 
-    // ✅ إصلاح: تحديث الـ AuditLog
-    await tx.userAuditLog.update({
-      where: { id: auditLog.id },
+    // Mark UserTask as rewarded
+    await tx.userTask.update({
+      where: { id: userTask.id },
       data: {
-        metadata: {
-          ...metadata,
-          rewardGiven: true,
-          points,
-        },
+        rewardGiven: true,
+        points,
       },
     });
 
@@ -91,16 +84,15 @@ export const isRewardGiven = async (
   userId: string,
   taskId: string
 ): Promise<boolean> => {
-  const auditLog = await prisma.userAuditLog.findFirst({
+  const userTask = await prisma.userTask.findFirst({
     where: {
       userId,
-      action: `TASK_SUBMIT:${taskId}`,
+      taskId,
+      rewardGiven: true,
     },
-    select: { metadata: true },
   });
 
-  const metadata = auditLog?.metadata as any;
-  return metadata?.rewardGiven ?? false;
+  return !!userTask;
 };
 
 export const getUserRewardState = async (userId: string) => {
