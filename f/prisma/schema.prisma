@@ -98,82 +98,82 @@ enum TaskPlatform {
 // =====================================================
 
 model User {
-  id                    String      @id @default(cuid())
+  id String @id @default(cuid())
 
-  walletAddress         String      @unique
+  walletAddress String @unique
 
-  email                 String?
-  username              String?
+  email    String?
+  username String?
 
-  status                UserStatus  @default(ACTIVE)
+  status UserStatus @default(ACTIVE)
 
-  lastLoginAt           DateTime?
+  lastLoginAt DateTime?
 
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  tags                  UserTag[]
+  tags UserTag[]
 
-  airdropParticipant    AirdropParticipant?
+  airdropParticipant AirdropParticipant?
 
-  purchases             Purchase[]
+  purchases Purchase[]
 
-  vestingSchedules      VestingSchedule[]
+  vestingSchedules VestingSchedule[]
 
-  claims                DistributionClaim[]
+  claims DistributionClaim[]
 
-  riskProfile           UserRiskProfile?
+  riskProfile UserRiskProfile?
 
-  audits                UserAuditLog[]
-  userTasks             UserTask[]
+  audits    UserAuditLog[]
+  userTasks UserTask[]
 }
 
 model UserTag {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tag             String
+  tag String
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, tag])
   @@index([tag])
 }
 
 model UserRiskProfile {
-  id                  String      @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId              String      @unique
-  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  riskLevel           RiskLevel   @default(LOW)
+  riskLevel RiskLevel @default(LOW)
 
-  riskScore           Int         @default(0)
+  riskScore Int @default(0)
 
-  isSybilSuspected    Boolean     @default(false)
+  isSybilSuspected Boolean @default(false)
 
-  notes               String?
+  notes String?
 
-  reviewedAt          DateTime?
+  reviewedAt DateTime?
 
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UserAuditLog {
-  id                String      @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId            String
-  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  action            String
+  action String
 
-  metadata          Json?
+  metadata Json?
 
-  createdAt         DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
@@ -183,104 +183,104 @@ model UserAuditLog {
 // =====================================================
 
 model AirdropParticipant {
-  id                        String      @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId                    String      @unique
-  user                      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  points                    Int         @default(0)
+  points Int @default(0)
 
-  allocationWei             String      @default("0")
+  allocationWei String @default("0")
 
-  isEligible                Boolean     @default(true)
+  isEligible Boolean @default(true)
 
-  airdropDirty              Boolean     @default(false)
+  airdropDirty Boolean @default(false)
 
-  lastCalculatedAt          DateTime?
+  lastCalculatedAt DateTime?
 
-  createdAt                 DateTime    @default(now())
-  updatedAt                 DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  proofs                    MerkleProof[]
+  proofs MerkleProof[]
 
-  claims                    DistributionClaim[]
+  claims DistributionClaim[]
 
   @@index([airdropDirty])
   @@index([isEligible])
 }
 
 model MerkleRoot {
-  id                      String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  distributionType        DistributionType
+  distributionType DistributionType
 
-  root                    String              @unique
+  root String @unique
 
-  ipfsSnapshotUrl         String?
+  ipfsSnapshotUrl String?
 
-  eligibleCount           Int
+  eligibleCount Int
 
-  totalAmountWei          String
+  totalAmountWei String
 
-  txHash                  String?
+  txHash String?
 
-  isActive                Boolean             @default(true)
+  isActive Boolean @default(true)
 
-  createdAt               DateTime            @default(now())
+  createdAt DateTime @default(now())
 
-  proofs                  MerkleProof[]
+  proofs MerkleProof[]
 
-  jobs                    MerkleJob[]
+  jobs MerkleJob[]
 
   @@index([distributionType])
   @@index([createdAt])
 }
 
 model MerkleProof {
-  id                        String                @id @default(cuid())
+  id String @id @default(cuid())
 
-  merkleRootId              String
-  merkleRoot                MerkleRoot            @relation(fields: [merkleRootId], references: [id], onDelete: Cascade)
+  merkleRootId String
+  merkleRoot   MerkleRoot @relation(fields: [merkleRootId], references: [id], onDelete: Cascade)
 
-  airdropParticipantId      String?
-  airdropParticipant        AirdropParticipant?   @relation(fields: [airdropParticipantId], references: [id], onDelete: Cascade)
+  airdropParticipantId String?
+  airdropParticipant   AirdropParticipant? @relation(fields: [airdropParticipantId], references: [id], onDelete: Cascade)
 
-  walletAddress             String
+  walletAddress String
 
-  proof                     Json
+  proof Json
 
-  leaf                      String
+  leaf String
 
-  amountWei                 String
+  amountWei String
 
-  createdAt                 DateTime              @default(now())
+  createdAt DateTime @default(now())
 
   @@index([walletAddress])
   @@index([merkleRootId])
 }
 
 model MerkleJob {
-  id                    String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  distributionType      DistributionType
+  distributionType DistributionType
 
-  status                MerkleJobStatus
+  status MerkleJobStatus
 
-  merkleRootId          String?
-  merkleRoot            MerkleRoot?        @relation(fields: [merkleRootId], references: [id])
+  merkleRootId String?
+  merkleRoot   MerkleRoot? @relation(fields: [merkleRootId], references: [id])
 
-  txHash                String?
+  txHash String?
 
-  eligibleCount         Int?
+  eligibleCount Int?
 
-  totalAmountWei        String?
+  totalAmountWei String?
 
-  error                 String?
+  error String?
 
-  startedAt             DateTime?
-  completedAt           DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
 
-  createdAt             DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@index([status])
   @@index([distributionType])
@@ -291,20 +291,20 @@ model MerkleJob {
 // =======================================
 
 model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  points      Int
-  platform    TaskPlatform
-  type        TaskType     @default(SOCIAL)
-  url         String?
-  isActive    Boolean      @default(true)
-  maxSubmissions Int       @default(1)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  title          String
+  description    String?
+  points         Int
+  platform       TaskPlatform
+  type           TaskType     @default(SOCIAL)
+  url            String?
+  isActive       Boolean      @default(true)
+  maxSubmissions Int          @default(1)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   // Relations
-  userTasks   UserTask[]
+  userTasks UserTask[]
 }
 
 model UserTask {
@@ -336,28 +336,28 @@ model UserTask {
 // =====================================================
 
 model DistributionClaim {
-  id                        String                @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId                    String
-  user                      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  distributionType          DistributionType
+  distributionType DistributionType
 
-  airdropParticipantId      String?
-  airdropParticipant        AirdropParticipant?   @relation(fields: [airdropParticipantId], references: [id])
+  airdropParticipantId String?
+  airdropParticipant   AirdropParticipant? @relation(fields: [airdropParticipantId], references: [id])
 
-  vestingScheduleId         String?
-  vestingSchedule           VestingSchedule?      @relation(fields: [vestingScheduleId], references: [id])
+  vestingScheduleId String?
+  vestingSchedule   VestingSchedule? @relation(fields: [vestingScheduleId], references: [id])
 
-  amountWei                 String
+  amountWei String
 
-  txHash                    String?
+  txHash String?
 
-  status                    ClaimStatus           @default(PENDING)
+  status ClaimStatus @default(PENDING)
 
-  claimedAt                 DateTime?
+  claimedAt DateTime?
 
-  createdAt                 DateTime              @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([distributionType])
@@ -368,51 +368,51 @@ model DistributionClaim {
 // =====================================================
 
 model VestingSchedule {
-  id                        String                @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId                    String
-  user                      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  source                    VestingSource
+  source VestingSource
 
-  totalAmountWei            String
+  totalAmountWei String
 
-  releasedAmountWei         String                @default("0")
+  releasedAmountWei String @default("0")
 
-  startTime                 DateTime
+  startTime DateTime
 
-  cliffTime                 DateTime
+  cliffTime DateTime
 
-  endTime                   DateTime
+  endTime DateTime
 
-  revoked                   Boolean               @default(false)
+  revoked Boolean @default(false)
 
-  revokable                 Boolean               @default(false)
+  revokable Boolean @default(false)
 
-  vestingDirty              Boolean               @default(false)
+  vestingDirty Boolean @default(false)
 
-  createdAt                 DateTime              @default(now())
-  updatedAt                 DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  releases                  VestingRelease[]
+  releases VestingRelease[]
 
-  claims                    DistributionClaim[]
+  claims DistributionClaim[]
 
   @@index([vestingDirty])
   @@index([source])
 }
 
 model VestingRelease {
-  id                        String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  vestingScheduleId         String
-  vestingSchedule           VestingSchedule    @relation(fields: [vestingScheduleId], references: [id], onDelete: Cascade)
+  vestingScheduleId String
+  vestingSchedule   VestingSchedule @relation(fields: [vestingScheduleId], references: [id], onDelete: Cascade)
 
-  amountWei                 String
+  amountWei String
 
-  txHash                    String?
+  txHash String?
 
-  releasedAt                DateTime           @default(now())
+  releasedAt DateTime @default(now())
 
   @@index([vestingScheduleId])
 }
@@ -422,36 +422,36 @@ model VestingRelease {
 // =====================================================
 
 model Purchase {
-  id                        String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId                    String
-  user                      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  source                    PurchaseSource
+  source PurchaseSource
 
-  paymentAsset              PaymentAsset
+  paymentAsset PaymentAsset
 
-  paymentAmount             Decimal             @db.Decimal(36, 18)
+  paymentAmount Decimal @db.Decimal(36, 18)
 
-  paymentAmountWei          String
+  paymentAmountWei String
 
-  tokenReceived             Decimal             @db.Decimal(36, 18)
+  tokenReceived Decimal @db.Decimal(36, 18)
 
-  tokenReceivedWei          String
+  tokenReceivedWei String
 
-  tokenPriceUsd             Decimal?            @db.Decimal(36, 18)
+  tokenPriceUsd Decimal? @db.Decimal(36, 18)
 
-  chainId                   Int
+  chainId Int
 
-  txHash                    String              @unique
+  txHash String @unique
 
-  blockNumber               BigInt?
+  blockNumber BigInt?
 
-  purchaseDirty             Boolean             @default(false)
+  purchaseDirty Boolean @default(false)
 
-  metadata                  Json?
+  metadata Json?
 
-  createdAt                 DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([paymentAsset])
@@ -463,19 +463,19 @@ model Purchase {
 // =====================================================
 
 model DistributionSnapshot {
-  id                        String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  distributionType          DistributionType
+  distributionType DistributionType
 
-  snapshotVersion           Int
+  snapshotVersion Int
 
-  totalUsers                Int
+  totalUsers Int
 
-  totalAmountWei            String
+  totalAmountWei String
 
-  metadata                  Json?
+  metadata Json?
 
-  createdAt                 DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([distributionType, snapshotVersion])
 }
@@ -485,17 +485,17 @@ model DistributionSnapshot {
 // =====================================================
 
 model QueueEvent {
-  id                        String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  type                      String
+  type String
 
-  payload                   Json
+  payload Json
 
-  processed                 Boolean             @default(false)
+  processed Boolean @default(false)
 
-  processedAt               DateTime?
+  processedAt DateTime?
 
-  createdAt                 DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@index([processed])
   @@index([type])
