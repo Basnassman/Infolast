@@ -4,9 +4,10 @@ import { successResponse } from "@core/api/responses/success.response";
 import { normalizeClaim } from "@core/api/normalizers/claim.normalizer";
 import { normalizeMerkleProof, normalizeMerkleRoot } from "@core/api/normalizers/merkle.normalizer";
 import { normalizeParticipant } from "@core/api/normalizers/participant.normalizer";
-import { getAirdropStats, AirdropStatsResult } from "@modules/airdrop/services/airdrop.service";
-import { recordClaim, getClaimStatus, ClaimStatusResult } from "@modules/airdrop/services/claim.service";
+import { getAirdropStats } from "@modules/airdrop/services/airdrop.service";
+import { recordClaim, getClaimStatus } from "@modules/airdrop/services/claim.service";
 import { getWalletProof } from "@modules/airdrop/repositories/merkle-proof.repository";
+import { ClaimStatusResult, AirdropStatsResult, EligibilityResponse } from "@modules/airdrop/types/airdrop.types";
 
 // ─── Eligibility ────────────────────────────────────────────────────────────
 export const getEligibilityController = asyncHandler(
@@ -14,9 +15,13 @@ export const getEligibilityController = asyncHandler(
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
     const eligibility: ClaimStatusResult = await getClaimStatus(walletAddress);
     
-    const result = {
-      ...eligibility,
+    const result: EligibilityResponse = {
       walletAddress: walletAddress.toLowerCase(),
+      eligible: eligibility.eligible,
+      amountWei: eligibility.amountWei,
+      points: eligibility.points,
+      proof: eligibility.proof,
+      claims: eligibility.claims,
     };
     
     return successResponse(res, normalizeParticipant(result));
