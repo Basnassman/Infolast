@@ -126,6 +126,7 @@ model User {
   riskProfile           UserRiskProfile?
 
   audits                UserAuditLog[]
+  userTasks             UserTask[]
 }
 
 model UserTag {
