@@ -2,15 +2,7 @@ import { createClaim } from "@modules/airdrop/repositories/claim.repository";
 import { validateClaim } from "@modules/airdrop/services/claim-validation.service";
 import { syncClaimTransaction } from "@modules/airdrop/services/claim-sync.service";
 import { prisma } from "@core/db/prisma";
-
-
-export interface ClaimStatusResult {
-  eligible: boolean;
-  amountWei: string;
-  points: number;
-  proof: string[];
-  claims: any[];
-}
+import { ClaimStatusResult } from "@modules/airdrop/types/airdrop.types";
 
 export const getClaimStatus = async (walletAddress: string): Promise<ClaimStatusResult> => {
   const normalized = walletAddress.toLowerCase();
@@ -49,7 +41,6 @@ export const getClaimStatus = async (walletAddress: string): Promise<ClaimStatus
     claims,
   };
 };
-
 
 export const recordClaim = async (walletAddress: string, txHash: string) => {
   const validation = await validateClaim(walletAddress);
