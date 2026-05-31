@@ -1,8 +1,8 @@
 import { prisma } from "@core/db/prisma";
 import { DistributionType, TaskStatus } from "@prisma/client";
 import { taskRepository } from "@modules/tasks/repositories/task.repository";
-import { userTaskRepository } from "@modules/tasks/repositories/user-task.repository";
-import { distributeReward } from "@modules/tasks/services/rewards/reward.service";
+import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
+import { distributeReward } from "@modules/tasks/rewards/reward.service";
 import { taskEventEmitter } from "@modules/tasks/events/task.events";
 
 // ─── Merkle Jobs ────────────────────────────────────────────────────────────

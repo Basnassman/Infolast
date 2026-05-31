@@ -36,9 +36,6 @@ router.get(
 
   walletRateLimit,
 
-  asyncHandler(
-    getTasksController
-  )
 );
 
 /**
@@ -49,9 +46,6 @@ router.get(
 
   authenticateWallet,
 
-  asyncHandler(
-    getTaskHistoryController
-  )
 );
 
 /**
@@ -65,10 +59,6 @@ router.post(
   validateRequest(
     submitTaskSchema
   ),
-
-  asyncHandler(
-    submitTaskController
-  )
 );
 
 export default router;

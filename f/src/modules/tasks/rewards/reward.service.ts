@@ -1,6 +1,6 @@
 import { prisma } from "@core/db/prisma";
 import { UserStatus, TaskStatus } from "@prisma/client";
-import { userTaskRepository } from "@modules/tasks/repositories/user-task.repository";
+import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
 
 export interface RewardResult {
   success: boolean;

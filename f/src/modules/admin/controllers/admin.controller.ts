@@ -55,14 +55,16 @@ export const createTaskController = asyncHandler(
 
 export const updateTaskController = asyncHandler(
   async (req: Request, res: Response) => {
-    const task = await updateTask(req.params.id, req.body);
+    const id = String(req.params.id);
+    const task = await updateTask(id, req.body);
     return successResponse(res, normalizeTask(task));
   }
 );
 
 export const deleteTaskController = asyncHandler(
   async (req: Request, res: Response) => {
-    const task = await deleteTask(req.params.id);
+    const id = String(req.params.id);
+    const task = await deleteTask(id);
     return successResponse(res, { deleted: true, task: normalizeTask(task) });
   }
 );
@@ -76,21 +78,24 @@ export const getAllTasksController = asyncHandler(
 
 export const toggleTaskController = asyncHandler(
   async (req: Request, res: Response) => {
-    const task = await toggleTask(req.params.id);
+    const id = String(req.params.id);
+    const task = await toggleTask(id);
     return successResponse(res, normalizeTask(task));
   }
 );
 
 export const approveTaskController = asyncHandler(
   async (req: Request, res: Response) => {
-    const result = await approveTask(req.params.id, req.walletAddress || "ADMIN");
+    const id = String(req.params.id);
+    const result = await approveTask(id, req.walletAddress || "ADMIN");
     return successResponse(res, result);
   }
 );
 
 export const rejectTaskController = asyncHandler(
   async (req: Request, res: Response) => {
-    const result = await rejectTask(req.params.id, req.walletAddress || "ADMIN");
+    const id = String(req.params.id);
+    const result = await rejectTask(id, req.walletAddress || "ADMIN");
     return successResponse(res, result);
   }
 );

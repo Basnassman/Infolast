@@ -24,11 +24,18 @@ export const userTaskRepository = {
     return prisma.userTask.create({ data });
   },
 
-  async findById(id: string): Promise<UserTask | null> {
-    return prisma.userTask.findUnique({
-      where: { id },
-      include: { task: true },
-    });
+  async findById(id: string): Promise<any> {
+  return prisma.userTask.findUnique({
+    where: { id },
+    include: {
+      user: {
+        include: {
+          riskProfile: true,
+        },
+      },
+      task: true,
+    },
+  });
   },
 
   async findByUserAndTask(userId: string, taskId: string): Promise<UserTask | null> {
@@ -46,12 +53,19 @@ export const userTaskRepository = {
     });
   },
 
-  async findPendingReview(): Promise<UserTask[]> {
-    return prisma.userTask.findMany({
-      where: { status: TaskStatus.REVIEW },
-      include: { task: true, user: true },
-      orderBy: { createdAt: "desc" },
-    });
+  async findPendingReview(): Promise<any[]> {
+  return prisma.userTask.findMany({
+    where: { status: TaskStatus.REVIEW },
+    include: {
+      user: {
+        include: {
+          riskProfile: true,
+        },
+      },
+      task: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
   },
 
   async upsert(userId: string, taskId: string, data: Partial<CreateUserTaskInput>): Promise<UserTask> {

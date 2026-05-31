@@ -24,7 +24,7 @@ export const getEligibilityController = asyncHandler(
       claims: eligibility.claims,
     };
     
-    return successResponse(res, normalizeParticipant(result));
+    successResponse(res, normalizeParticipant(result));
   }
 );
 
@@ -33,7 +33,7 @@ export const claimAirdropController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { walletAddress, txHash } = req.body;
     const claim = await recordClaim(walletAddress, txHash);
-    return successResponse(res, normalizeClaim(claim));
+    successResponse(res, normalizeClaim(claim));
   }
 );
 
@@ -42,7 +42,7 @@ export const getClaimStatusController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
     const status: ClaimStatusResult = await getClaimStatus(walletAddress);
-    return successResponse(res, normalizeClaim(status));
+    successResponse(res, normalizeClaim(status));
   }
 );
 
@@ -51,7 +51,7 @@ export const getMerkleProofController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const walletAddress = String(req.query.walletAddress);
     const proof = await getWalletProof(walletAddress);
-    return successResponse(res, normalizeMerkleProof(proof));
+    successResponse(res, normalizeMerkleProof(proof));
   }
 );
 
@@ -59,7 +59,7 @@ export const getMerkleProofController = asyncHandler(
 export const getAirdropStatsController = asyncHandler(
   async (_req: Request, res: Response): Promise<void> => {
     const stats: AirdropStatsResult = await getAirdropStats();
-    return successResponse(res, normalizeMerkleRoot(stats));
+    successResponse(res, normalizeMerkleRoot(stats));
   }
 );
 
