@@ -1,3 +1,5 @@
+// f/src/modules/admin/services/admin.service.ts
+
 import { prisma } from "@core/db/prisma";
 import { DistributionType, TaskStatus } from "@prisma/client";
 import { taskRepository } from "@modules/tasks/repositories/task.repository";
@@ -46,7 +48,9 @@ export const toggleTask = async (id: string) => {
 };
 
 export const approveTask = async (userTaskId: string, reviewedBy: string) => {
+  // ✅ استخدم userTaskRepository.findById (ي include task)
   const userTask = await userTaskRepository.findById(userTaskId);
+  
   if (!userTask) throw new Error("UserTask not found");
   if (userTask.status === TaskStatus.VERIFIED) {
     throw new Error("Task already approved");
@@ -109,12 +113,14 @@ export const rejectTask = async (userTaskId: string, reviewedBy: string) => {
 };
 
 export const getReviewQueue = async () => {
+  // ✅ userTaskRepository.findPendingReview ي include كل شي
   const queue = await userTaskRepository.findPendingReview();
-  return queue.map((ut) => ({
+
+  return queue.map((ut: any) => ({
     id: ut.id,
     user: {
       wallet: ut.user.walletAddress,
-      riskScore: ut.user.riskProfile?.riskScore || 0,
+      riskScore: ut.user.riskProfile?.riskScore ?? 0,
     },
     task: {
       title: ut.task.title,
@@ -122,7 +128,7 @@ export const getReviewQueue = async () => {
       points: ut.task.points,
     },
     status: ut.status,
-    completedAt: ut.createdAt.toISOString(),
+    completedAt: ut.completedAt?.toISOString() ?? ut.createdAt.toISOString(),
     ip: ut.ip,
     userAgent: ut.userAgent,
   }));
