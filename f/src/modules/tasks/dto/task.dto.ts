@@ -10,7 +10,7 @@ export const createTaskSchema = z.object({
   url: z.string().url().optional(),
   isActive: z.boolean().optional(),
   maxSubmissions: z.number().int().min(1).optional(),
-});
+});.strict();
 
 export const updateTaskSchema = z.object({
   title: z.string().min(1).max(200).optional(),
