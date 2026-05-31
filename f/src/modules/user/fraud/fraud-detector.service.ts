@@ -28,7 +28,7 @@ export const analyzeFraudPatterns = async (
   }
 
   let riskScore = 0;
-  let riskLevel = RiskLevel.LOW;
+  let riskLevel: RiskLevel = RiskLevel.LOW;
   let isSybilSuspected = false;
   const notes: string[] = [];
 

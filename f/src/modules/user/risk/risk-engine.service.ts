@@ -159,7 +159,7 @@ export const analyzeRisk = async (
   // Determine risk level
   // =====================================
 
-  let level =
+  let level: RiskLevel =
     RiskLevel.LOW;
 
   let action:

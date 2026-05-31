@@ -1,11 +1,11 @@
 import { Task, TaskStatus } from "@prisma/client";
 import { taskRepository } from "../repositories/task.repository";
-import { userTaskRepository } from "../repositories/user-task.repository";
-import { userService } from "@modules/user/services/user.service";
+import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
+import { userService } from "@modules/user/service/user.service";
 import { taskEventEmitter } from "../events/task.events";
-import { riskEngine } from "@modules/user/risk/risk-engine.service";
-import { fraudDetector } from "@modules/user/fraud/fraud-detector.service";
-import { taskAdminService } from "./task-admin.service";
+import { analyzeRisk } from "@modules/user/risk/risk-engine.service";
+import { analyzeFraudPatterns } from "@modules/user/fraud/fraud-detector.service";
+import { approveTask } from "@modules/admin/services/admin.service";
 
 export interface SubmitTaskPayload {
   walletAddress: string;
@@ -44,7 +44,6 @@ export const taskService = {
       completedAt: ut.completedAt?.toISOString(),
       createdAt: ut.createdAt.toISOString(),
       updatedAt: ut.updatedAt.toISOString(),
-      task: ut.task,
     }));
   },
 
@@ -63,7 +62,7 @@ export const taskService = {
       throw new Error("Task already completed");
     }
 
-    const riskResult = await riskEngine.analyzeRisk(user.id, ip, userAgent);
+    const riskResult = await analyzeRisk(user.id, ip || "", userAgent);
 
     if (riskResult.action === "REJECT") {
       throw new Error("Task rejected by risk engine");
@@ -87,10 +86,10 @@ export const taskService = {
     });
 
     if (initialStatus === TaskStatus.PENDING && riskResult.score < 30) {
-      return taskAdminService.approveTask(userTask.id, "SYSTEM_AUTO");
+      return approveTask(userTask.id, "SYSTEM_AUTO");
     }
 
-    fraudDetector.analyzeFraudPatterns(user.id).catch(console.error);
+    analyzeFraudPatterns(user.id).catch(console.error);
 
     return {
       id: userTask.id,

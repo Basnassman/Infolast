@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
-import { normalizeTask, normalizeTaskSubmission, normalizeUserTask } from "../normalizers/task.normalizer";
+import { normalizeTask, normalizeTaskSubmission, normalizeUserTask } from "@core/api/normalizers/task.normalizer";
 import { taskService } from "../services/task.service";
 
 export const getTasksController = asyncHandler(async (req: Request, res: Response) => {

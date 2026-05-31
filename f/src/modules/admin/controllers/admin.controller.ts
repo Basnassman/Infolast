@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
 import { normalizeMerkleRoot } from "@core/api/normalizers/merkle.normalizer";
-import { normalizeTask } from "@modules/tasks/normalizers/task.normalizer";
+import { normalizeTask } from "@core/api/normalizers/task.normalizer";
 import { rebuildAndSync } from "@modules/airdrop/workers/rebuild.worker";
 import { getActiveMerkleRoot } from "@modules/airdrop/repositories/merkle-root.repository";
 import {
