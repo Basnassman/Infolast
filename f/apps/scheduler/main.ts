@@ -1,1 +1,1 @@
-import "../../src/core/workers/cron-scheduler";
+import "../../src/core/cron/cron-scheduler";

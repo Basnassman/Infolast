@@ -49,15 +49,20 @@ export const hasRole =
     }
   };
 
-export const isAdmin =
-  async (
-    walletAddress: string
-  ): Promise<boolean> => {
-    return hasRole(
-      DEFAULT_ADMIN_ROLE,
-      walletAddress
-    );
-  };
+export const isAdmin = async (
+  walletAddress: string
+): Promise<boolean> => {
+  console.log("CHECKING:", walletAddress);
+
+  const result = await hasRole(
+    DEFAULT_ADMIN_ROLE,
+    walletAddress
+  );
+
+  console.log("RESULT:", result);
+
+  return result;
+};
 
 export const isGov =
   async (
