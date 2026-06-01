@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 
-let PRIVATE_KEY = "5233a5794699933900eb816dcae84c17d087db5c2683cebba28261d1eb4dbb55";
+let PRIVATE_KEY = "";
 
 // إزالة 0x إذا وجدت
 if (PRIVATE_KEY.startsWith('0x')) {
