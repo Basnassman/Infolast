@@ -140,3 +140,53 @@ export const requireDepositor =
   requireRole(
     "DEPOSITOR"
   );
+
+// ✅ جديد: يقبل Admin أو Gov أو Operator
+export const requireAdminOrGov = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const walletAddress = req.walletAddress;
+
+    if (!walletAddress) {
+      const response: ApiError = {
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      };
+      return res.status(401).json(response);
+    }
+
+    const [admin, gov, operator] = await Promise.all([
+      isAdmin(walletAddress),
+      isGov(walletAddress),
+      isOperator(walletAddress),
+    ]);
+
+    if (!admin && !gov && !operator) {
+      const response: ApiError = {
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "ADMIN role required",
+        },
+      };
+      return res.status(403).json(response);
+    }
+
+    next();
+  } catch (error: any) {
+    const response: ApiError = {
+      success: false,
+      error: {
+        code: "ROLE_CHECK_FAILED",
+        message: error.message,
+      },
+    };
+    return res.status(500).json(response);
+  }
+};

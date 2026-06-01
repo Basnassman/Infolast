@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin, requireGov } from "@core/middleware/role.middleware";
+import { requireAdmin, requireGov, requireAdminOrGov } from "@core/middleware/role.middleware";
 import { authenticate } from "@core/middleware/auth.middleware";
 import { rateLimit } from "@core/middleware/rate-limit.middleware";
 import { validateRequest } from "@core/middleware/validate-request.middleware";
@@ -29,13 +29,13 @@ router.get("/merkle/jobs", requireGov, getMerkleJobsController);
 router.post("/merkle/rebuild", requireGov, rebuildMerkleController);
 
 // ─── Task Admin Routes ──────────────────────────────────────────────────────
-router.post("/tasks", requireAdmin, validateRequest(createTaskSchema), createTaskController);
-router.get("/tasks", requireAdmin, getAllTasksController);
-router.put("/tasks/:id", requireAdmin, validateRequest(updateTaskSchema), updateTaskController);
-router.delete("/tasks/:id", requireAdmin, deleteTaskController);
-router.patch("/tasks/:id/toggle", requireAdmin, toggleTaskController);
-router.get("/review-queue", requireAdmin, getReviewQueueController);
-router.post("/review/:id/approve", requireAdmin, approveTaskController);
-router.post("/review/:id/reject", requireAdmin, rejectTaskController);
+router.post("/tasks", requireAdminOrGov, validateRequest(createTaskSchema), createTaskController);
+router.get("/tasks", requireAdminOrGov, getAllTasksController);
+router.put("/tasks/:id", requireAdminOrGov, validateRequest(updateTaskSchema), updateTaskController);
+router.delete("/tasks/:id", requireAdminOrGov, deleteTaskController);
+router.patch("/tasks/:id/toggle", requireAdminOrGov, toggleTaskController);
+router.get("/review-queue", requireAdminOrGov, getReviewQueueController);
+router.post("/review/:id/approve", requireAdminOrGov, approveTaskController);
+router.post("/review/:id/reject", requireAdminOrGov, rejectTaskController);
 
 export default router;
