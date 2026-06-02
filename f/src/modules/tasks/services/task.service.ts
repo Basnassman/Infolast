@@ -1,11 +1,11 @@
-import { Task, TaskStatus } from "@prisma/client";
+import { getOrCreateUser } from "@modules/user/utils/user";  // ✅ استخدم user.ts
 import { taskRepository } from "../repositories/task.repository";
 import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
-import { userService } from "@modules/user/service/user.service";
 import { taskEventEmitter } from "../events/task.events";
 import { analyzeRisk } from "@modules/user/risk/risk-engine.service";
 import { analyzeFraudPatterns } from "@modules/user/fraud/fraud-detector.service";
 import { approveTask } from "@modules/admin/services/admin.service";
+import { Task, TaskStatus} from "@prisma/client";
 
 export interface SubmitTaskPayload {
   walletAddress: string;
@@ -17,9 +17,8 @@ export interface SubmitTaskPayload {
 
 export const taskService = {
   async getAvailableTasks(walletAddress: string): Promise<Task[]> {
-    const user = await userService.findByWallet(walletAddress);
-    if (!user) return [];
-
+    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
+    
     const tasks = await taskRepository.findActive();
     const userTasks = await userTaskRepository.findByUser(user.id);
 
@@ -30,9 +29,8 @@ export const taskService = {
   },
 
   async getUserTaskHistory(walletAddress: string): Promise<any[]> {
-    const user = await userService.findByWallet(walletAddress);
-    if (!user) return [];
-
+    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
+    
     const history = await userTaskRepository.findByUser(user.id);
     return history.map((ut) => ({
       id: ut.id,
@@ -50,9 +48,8 @@ export const taskService = {
   async submitTask(payload: SubmitTaskPayload): Promise<any> {
     const { walletAddress, taskId, ip, userAgent, proof } = payload;
 
-    const user = await userService.findByWallet(walletAddress);
-    if (!user) throw new Error("User not found");
-
+    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
+    
     const task = await taskRepository.findById(taskId);
     if (!task) throw new Error("Task not found");
     if (!task.isActive) throw new Error("Task is not active");
