@@ -46,55 +46,42 @@ export const taskService = {
   },
 
   async submitTask(payload: SubmitTaskPayload): Promise<any> {
-    const { walletAddress, taskId, ip, userAgent, proof } = payload;
+  const { walletAddress, taskId, ip, userAgent, proof } = payload;
 
-    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
-    
-    const task = await taskRepository.findById(taskId);
-    if (!task) throw new Error("Task not found");
-    if (!task.isActive) throw new Error("Task is not active");
+  const user = await getOrCreateUser(walletAddress);
+  
+  const task = await taskRepository.findById(taskId);
+  if (!task) throw new Error("Task not found");
+  if (!task.isActive) throw new Error("Task is not active");
 
-    const existing = await userTaskRepository.findByUserAndTask(user.id, taskId);
-    if (existing && existing.status === TaskStatus.VERIFIED) {
-      throw new Error("Task already completed");
-    }
+  const existing = await userTaskRepository.findByUserAndTask(user.id, taskId);
+  if (existing && existing.status === TaskStatus.VERIFIED) {
+    throw new Error("Task already completed");
+  }
 
-    const riskResult = await analyzeRisk(user.id, ip || "", userAgent);
+  // ✅ كل المهام تروح للـ REVIEW
+  const initialStatus: TaskStatus = TaskStatus.REVIEW;
 
-    if (riskResult.action === "REJECT") {
-      throw new Error("Task rejected by risk engine");
-    }
+  const userTask = await userTaskRepository.upsert(user.id, taskId, {
+    status: initialStatus,
+    ip,
+    userAgent,
+    proof,
+  });
 
-    const initialStatus: TaskStatus =
-      riskResult.action === "REVIEW" ? TaskStatus.REVIEW : TaskStatus.PENDING;
+  taskEventEmitter.emit("task.submitted", {
+    userTaskId: userTask.id,
+    userId: user.id,
+    taskId,
+    status: initialStatus,
+  });
 
-    const userTask = await userTaskRepository.upsert(user.id, taskId, {
-      status: initialStatus,
-      ip,
-      userAgent,
-      proof,
-    });
+  analyzeFraudPatterns(user.id).catch(console.error);
 
-    taskEventEmitter.emit("task.submitted", {
-      userTaskId: userTask.id,
-      userId: user.id,
-      taskId,
-      status: initialStatus,
-    });
-
-    if (initialStatus === TaskStatus.PENDING && riskResult.score < 30) {
-      return approveTask(userTask.id, "SYSTEM_AUTO");
-    }
-
-    analyzeFraudPatterns(user.id).catch(console.error);
-
-    return {
-      id: userTask.id,
-      status: userTask.status,
-      message:
-        initialStatus === TaskStatus.REVIEW
-          ? "Task under manual review"
-          : "Task submitted successfully",
-    };
-  },
+  return {
+    id: userTask.id,
+    status: userTask.status,
+    message: "Task under manual review",
+  };
+}
 };
