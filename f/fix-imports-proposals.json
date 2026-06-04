@@ -2,7 +2,7 @@
   {
     "file": "node_modules/@types/node/inspector.d.ts",
     "from": "./dist/app",
-    "to": "../../../src/app",
+    "to": "@src/app",
     "line": "         *   require('./dist/app');"
   }
 ]
