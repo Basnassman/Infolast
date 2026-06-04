@@ -22,6 +22,15 @@ CREATE TYPE "VestingSource" AS ENUM ('AIRDROP', 'PRESALE', 'TEAM', 'ADVISOR', 'I
 -- CreateEnum
 CREATE TYPE "RiskLevel" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 
+-- CreateEnum
+CREATE TYPE "TaskStatus" AS ENUM ('PENDING', 'VERIFIED', 'REJECTED', 'REVIEW');
+
+-- CreateEnum
+CREATE TYPE "TaskType" AS ENUM ('SOCIAL', 'VIDEO', 'ARTICLE', 'REFERRAL');
+
+-- CreateEnum
+CREATE TYPE "TaskPlatform" AS ENUM ('X', 'TELEGRAM', 'YOUTUBE', 'DISCORD', 'ARTICLE');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -131,6 +140,43 @@ CREATE TABLE "MerkleJob" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "MerkleJob_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Task" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "points" INTEGER NOT NULL,
+    "platform" "TaskPlatform" NOT NULL,
+    "type" "TaskType" NOT NULL DEFAULT 'SOCIAL',
+    "url" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "maxSubmissions" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Task_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserTask" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "taskId" TEXT NOT NULL,
+    "status" "TaskStatus" NOT NULL DEFAULT 'PENDING',
+    "rewardGiven" BOOLEAN NOT NULL DEFAULT false,
+    "points" INTEGER NOT NULL DEFAULT 0,
+    "ip" TEXT,
+    "userAgent" TEXT,
+    "proof" JSONB,
+    "completedAt" TIMESTAMP(3),
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserTask_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -271,6 +317,18 @@ CREATE INDEX "MerkleJob_status_idx" ON "MerkleJob"("status");
 CREATE INDEX "MerkleJob_distributionType_idx" ON "MerkleJob"("distributionType");
 
 -- CreateIndex
+CREATE INDEX "UserTask_userId_idx" ON "UserTask"("userId");
+
+-- CreateIndex
+CREATE INDEX "UserTask_taskId_idx" ON "UserTask"("taskId");
+
+-- CreateIndex
+CREATE INDEX "UserTask_status_idx" ON "UserTask"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UserTask_userId_taskId_key" ON "UserTask"("userId", "taskId");
+
+-- CreateIndex
 CREATE INDEX "DistributionClaim_userId_idx" ON "DistributionClaim"("userId");
 
 -- CreateIndex
@@ -326,6 +384,12 @@ ALTER TABLE "MerkleProof" ADD CONSTRAINT "MerkleProof_airdropParticipantId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "MerkleJob" ADD CONSTRAINT "MerkleJob_merkleRootId_fkey" FOREIGN KEY ("merkleRootId") REFERENCES "MerkleRoot"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserTask" ADD CONSTRAINT "UserTask_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserTask" ADD CONSTRAINT "UserTask_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DistributionClaim" ADD CONSTRAINT "DistributionClaim_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

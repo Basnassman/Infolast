@@ -14,7 +14,6 @@ export const distributeReward = async (
   points: number
 ): Promise<RewardResult> => {
   return prisma.$transaction(async (tx) => {
-    // ✅ Source of Truth: UserTask (not UserAuditLog)
     const userTask = await tx.userTask.findFirst({
       where: {
         userId,
@@ -31,7 +30,6 @@ export const distributeReward = async (
       throw new Error("Reward already distributed");
     }
 
-    // Find or create participant
     let participant = await tx.airdropParticipant.findUnique({
       where: { userId },
     });
@@ -63,7 +61,6 @@ export const distributeReward = async (
       });
     }
 
-    // Mark UserTask as rewarded
     await tx.userTask.update({
       where: { id: userTask.id },
       data: {
