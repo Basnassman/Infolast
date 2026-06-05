@@ -6,6 +6,7 @@ import { taskRepository } from "@modules/tasks/repositories/task.repository";
 import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
 import { distributeReward } from "@modules/tasks/rewards/reward.service";
 import { taskEventEmitter } from "@modules/tasks/events/task.events";
+import { recalculateAllocations } from "@modules/airdrop/services/allocation.service";
 
 // ─── Merkle Jobs ────────────────────────────────────────────────────────────
 
@@ -68,6 +69,9 @@ export const approveTask = async (userTaskId: string, reviewedBy: string) => {
     userTask.taskId,
     userTask.task.points
   );
+
+  await recalculateAllocations();
+
 
   await userTaskRepository.update(userTaskId, {
     points: rewardResult.points,

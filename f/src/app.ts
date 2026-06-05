@@ -12,6 +12,8 @@ import {
   registerErrors,
 } from "./core/http/register-errors";
 
+import { initCronJobs } from "./core/cron/cron-scheduler";
+
 const app = express();
 
 registerMiddlewares(app);
@@ -19,5 +21,7 @@ registerMiddlewares(app);
 registerRoutes(app);
 
 registerErrors(app);
+
+initCronJobs();
 
 export default app;
