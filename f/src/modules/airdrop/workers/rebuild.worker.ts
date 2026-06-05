@@ -67,7 +67,7 @@ const buildMerkleSnapshot = (
     );
 
     return {
-      walletAddress: leaf.walletAddress,
+      walletAddress: leaf.walletAddress.toLowerCase(),
       proof,
       leaf: leaf.leaf,
       amountWei: leaf.amount,
