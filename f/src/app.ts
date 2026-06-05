@@ -12,7 +12,7 @@ import {
   registerErrors,
 } from "./core/http/register-errors";
 
-import { initCronJobs } from "./core/cron/cron-scheduler";
+//import { initCronJobs } from "./core/cron/cron-scheduler";
 
 const app = express();
 
@@ -22,6 +22,6 @@ registerRoutes(app);
 
 registerErrors(app);
 
-initCronJobs();
+//initCronJobs();
 
 export default app;
