@@ -30,7 +30,7 @@ export const registerRoutes = (
 
   app.post("/api/v1/internal/rebuild", async (req, res) => {
   const secret = req.headers["x-admin-secret"];
-  if (secret !== process.env.ADMIN_SECRET) {
+  if (secret !== process.env.ADMIN_SECRET || 100000 ) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
   const result = await rebuildAndSync();
