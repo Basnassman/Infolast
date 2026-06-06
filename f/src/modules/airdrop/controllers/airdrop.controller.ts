@@ -57,9 +57,16 @@ export const getMerkleProofController = asyncHandler(
 
 // ─── Airdrop Stats ────────────────────────────────────────────────────────
 export const getAirdropStatsController = asyncHandler(
-  async (_req: Request, res: Response): Promise<void> => {
-    const stats: AirdropStatsResult = await getAirdropStats();
-    successResponse(res, normalizeMerkleRoot(stats));
+  async (_req, res) => {
+    const stats = await getAirdropStats();
+    successResponse(res, {
+      activeRoot:     stats.activeRoot,
+      eligibleCount:  stats.eligibleCount,
+      totalAmountWei: stats.totalAmountWei,
+      totalUsers:     stats.totalUsers,
+      participants:   stats.participants,
+      claims:         stats.claims,
+    });
   }
 );
 

@@ -10,6 +10,8 @@ import adminRoutes from "../../modules/admin/routes/admin.routes";
 
 import taskRoutes from "../../modules/tasks/routes/task.routes";
 
+import { rebuildAndSync } from "../../modules/airdrop/workers/rebuild.worker";
+
 export const registerRoutes = (
   app: Express
 ): void => {
@@ -24,6 +26,17 @@ export const registerRoutes = (
       });
     }
   );
+
+
+  app.post("/api/v1/internal/rebuild", async (req, res) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+  const result = await rebuildAndSync();
+  return res.json({ success: true, data: result });
+  });
+
 
   app.use(
     "/api/v1/auth",
