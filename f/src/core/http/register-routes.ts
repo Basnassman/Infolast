@@ -30,12 +30,19 @@ export const registerRoutes = (
 
   app.post("/api/v1/internal/rebuild", async (req, res) => {
   const secret = req.headers["x-admin-secret"];
-  if (secret !== process.env.ADMIN_SECRET || 100000 ) {
+  const adminSecret = process.env.ADMIN_SECRET;
+
+  if (!adminSecret || secret !== adminSecret) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
-  const result = await rebuildAndSync();
-  return res.json({ success: true, data: result });
-  });
+
+  try {
+    const result = await rebuildAndSync();
+    return res.json({ success: true, data: result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 
   app.use(
