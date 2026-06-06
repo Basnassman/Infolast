@@ -17,15 +17,9 @@ export interface SubmitTaskPayload {
 
 export const taskService = {
   async getAvailableTasks(walletAddress: string): Promise<Task[]> {
-    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
-    
+    await getOrCreateUser(walletAddress);
     const tasks = await taskRepository.findActive();
-    const userTasks = await userTaskRepository.findByUser(user.id);
-
-    return tasks.filter((task) => {
-      const submissions = userTasks.filter((ut) => ut.taskId === task.id).length;
-      return submissions < task.maxSubmissions;
-    });
+    return tasks;
   },
 
   async getUserTaskHistory(walletAddress: string): Promise<any[]> {
