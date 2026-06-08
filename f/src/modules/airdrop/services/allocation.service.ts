@@ -24,12 +24,8 @@ export const toWei =
     const value =
       Number(tokens);
 
-    return BigInt(
-      Math.floor(
-        value *
-        10 ** DECIMALS
-      )
-    ).toString();
+    return (BigInt(Math.floor(value)) * (10n ** BigInt(DECIMALS))).toString();
+
   };
 
 export const fromWei =

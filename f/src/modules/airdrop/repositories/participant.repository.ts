@@ -5,7 +5,7 @@ export const getEligibleParticipants = async () => {
   return prisma.airdropParticipant.findMany({
     where: {
       isEligible: true,           // ✅ Boolean
-      points: { gt: 0 },          // ✅ Int
+      points: { not: 0 },          // ✅ Int
       user: {
         status: UserStatus.ACTIVE, // ✅ Enum
       },
