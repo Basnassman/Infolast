@@ -121,7 +121,7 @@ export const rebuildAndSync = async (): Promise<RebuildResult> => {
     const now = Math.floor(Date.now() / 1000);
     const claimStart = Number(process.env.CLAIM_START || now);
     const claimEnd = Number(process.env.CLAIM_END || now + 7_776_000); // 90 يوم
-    const cap = BigInt(process.env.CLAIM_CAP_WEI || snapshot.totalAmountWei) * 2n;
+    const cap = BigInt(process.env.CLAIM_CAP_WEI || snapshot.totalAmountWei);
 
     const txHash = await pushMerkleRoot(snapshot.root, claimStart, claimEnd, cap);
 
