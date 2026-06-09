@@ -1,10 +1,15 @@
-// f/src/modules/tasks/workers/task-worker.ts
-
 import { prisma } from "@core/db/prisma";
 import { UserStatus, TaskStatus } from "@prisma/client";
 import * as riskEngine from "@modules/user/risk/risk-engine.service";
 import * as rewardEngine from "@modules/tasks/rewards/reward.service";
 import * as fraudDetector from "@modules/user/fraud/fraud-detector.service";
+import { UserNotFoundError } from "../errors/user-not-found.error";
+import { UserInactiveError } from "../errors/user-inactive.error";
+import { TaskNotFoundError } from "../errors/task-not-found.error";
+import { TaskInactiveError } from "../errors/task-inactive.error";
+import { TaskSubmissionLimitReachedError } from "../errors/task-submission-limit-reached.error";
+import { UserTaskNotFoundError } from "../errors/user-task-not-found.error";
+import { TaskNotUnderReviewError } from "../errors/task-not-under-review.error";
 
 export interface TaskExecutionResult {
   status: TaskStatus;
@@ -25,8 +30,12 @@ export const processTaskExecution = async (
     where: { id: userId },
   });
 
-  if (!user) throw new Error("User not found");
-  if (user.status !== UserStatus.ACTIVE) throw new Error("User is not active");
+  if (!user) {
+  throw new UserNotFoundError(userId);
+  }
+  if (user.status !== UserStatus.ACTIVE) {
+  throw new UserInactiveError(userId);
+  }
 
   // ✅ UserTask الصحيح
   const existing = await prisma.userTask.findUnique({
@@ -44,12 +53,16 @@ export const processTaskExecution = async (
   }
 
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("Task not found");
-  if (!task.isActive) throw new Error("Task is not active");
+  if (!task) {
+  throw new TaskNotFoundError(taskId);
+  }
+  if (!task.isActive) {
+  throw new TaskInactiveError(taskId);
+  }
 
   const submissionCount = await prisma.userTask.count({ where: { taskId } });
   if (submissionCount >= task.maxSubmissions) {
-    throw new Error("Task submission limit reached");
+    throw new TaskSubmissionLimitReachedError(taskId);
   }
 
   const riskResult = await riskEngine.analyzeRisk(userId, ip, userAgent);
@@ -124,8 +137,10 @@ export const processReviewApproval = async (
     include: { task: true },
   });
 
-  if (!userTask) throw new Error("UserTask not found");
-  if (userTask.status !== TaskStatus.REVIEW) throw new Error("Task is not under review");
+  if (!userTask) {
+  throw new UserTaskNotFoundError(userTaskId);
+  }
+  if (userTask.status !== TaskStatus.REVIEW) throw new TaskNotUnderReviewError(userTaskId);
 
   await prisma.userTask.update({
     where: { id: userTask.id },

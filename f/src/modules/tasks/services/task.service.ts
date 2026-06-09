@@ -1,11 +1,14 @@
-import { getOrCreateUser } from "@modules/user/utils/user";  // ✅ استخدم user.ts
+import { getOrCreateUser } from "@modules/user/utils/user";
 import { taskRepository } from "../repositories/task.repository";
 import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
 import { taskEventEmitter } from "../events/task.events";
-import { analyzeRisk } from "@modules/user/risk/risk-engine.service";
 import { analyzeFraudPatterns } from "@modules/user/fraud/fraud-detector.service";
-import { approveTask } from "@modules/admin/services/admin.service";
-import { Task, TaskStatus} from "@prisma/client";
+
+import { Task, TaskStatus } from "@prisma/client";
+
+import { TaskNotFoundError } from "../errors/task-not-found.error";
+import { TaskInactiveError } from "../errors/task-inactive.error";
+import { TaskAlreadyCompletedError } from "../errors/task-already-completed.error";
 
 export interface SubmitTaskPayload {
   walletAddress: string;
@@ -18,14 +21,17 @@ export interface SubmitTaskPayload {
 export const taskService = {
   async getAvailableTasks(walletAddress: string): Promise<Task[]> {
     await getOrCreateUser(walletAddress);
+
     const tasks = await taskRepository.findActive();
+
     return tasks;
   },
 
   async getUserTaskHistory(walletAddress: string): Promise<any[]> {
-    const user = await getOrCreateUser(walletAddress);  // ✅ أنشئ المستخدم إذا غير موجود
-    
+    const user = await getOrCreateUser(walletAddress);
+
     const history = await userTaskRepository.findByUser(user.id);
+
     return history.map((ut) => ({
       id: ut.id,
       userId: ut.userId,
@@ -40,42 +46,52 @@ export const taskService = {
   },
 
   async submitTask(payload: SubmitTaskPayload): Promise<any> {
-  const { walletAddress, taskId, ip, userAgent, proof } = payload;
+    const { walletAddress, taskId, ip, userAgent, proof } = payload;
 
-  const user = await getOrCreateUser(walletAddress);
-  
-  const task = await taskRepository.findById(taskId);
-  if (!task) throw new Error("Task not found");
-  if (!task.isActive) throw new Error("Task is not active");
+    const user = await getOrCreateUser(walletAddress);
 
-  const existing = await userTaskRepository.findByUserAndTask(user.id, taskId);
-  if (existing && existing.status === TaskStatus.VERIFIED) {
-    throw new Error("Task already completed");
-  }
+    const task = await taskRepository.findById(taskId);
 
-  // ✅ كل المهام تروح للـ REVIEW
-  const initialStatus: TaskStatus = TaskStatus.REVIEW;
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
 
-  const userTask = await userTaskRepository.upsert(user.id, taskId, {
-    status: initialStatus,
-    ip,
-    userAgent,
-    proof,
-  });
+    if (!task.isActive) {
+      throw new TaskInactiveError(taskId);
+    }
 
-  taskEventEmitter.emit("task.submitted", {
-    userTaskId: userTask.id,
-    userId: user.id,
-    taskId,
-    status: initialStatus,
-  });
+    const existing = await userTaskRepository.findByUserAndTask(
+      user.id,
+      taskId
+    );
 
-  analyzeFraudPatterns(user.id).catch(console.error);
+    if (existing?.status === TaskStatus.VERIFIED) {
+      throw new TaskAlreadyCompletedError(taskId);
+    }
 
-  return {
-    id: userTask.id,
-    status: userTask.status,
-    message: "Task under manual review",
-  };
-}
+    // جميع المهام تبدأ بالمراجعة اليدوية
+    const initialStatus: TaskStatus = TaskStatus.REVIEW;
+
+    const userTask = await userTaskRepository.upsert(user.id, taskId, {
+      status: initialStatus,
+      ip,
+      userAgent,
+      proof,
+    });
+
+    taskEventEmitter.emit("task.submitted", {
+      userTaskId: userTask.id,
+      userId: user.id,
+      taskId,
+      status: initialStatus,
+    });
+
+    analyzeFraudPatterns(user.id).catch(console.error);
+
+    return {
+      id: userTask.id,
+      status: userTask.status,
+      message: "Task under manual review",
+    };
+  },
 };

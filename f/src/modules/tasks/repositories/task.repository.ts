@@ -1,6 +1,8 @@
 import { prisma } from "@core/db/prisma";
 import { Task, TaskPlatform, TaskType } from "@prisma/client";
 
+import { TaskNotFoundError } from "../errors/task-not-found.error";
+
 export interface CreateTaskInput {
   title: string;
   description?: string;
@@ -29,23 +31,34 @@ export const taskRepository = {
   },
 
   async findById(id: string): Promise<Task | null> {
-    return prisma.task.findUnique({ where: { id } });
+    return prisma.task.findUnique({
+      where: { id },
+    });
   },
 
   async findAll(): Promise<Task[]> {
     return prisma.task.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
   },
 
   async findActive(): Promise<Task[]> {
     return prisma.task.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
   },
 
-  async update(id: string, data: UpdateTaskInput): Promise<Task> {
+  async update(
+    id: string,
+    data: UpdateTaskInput
+  ): Promise<Task> {
     return prisma.task.update({
       where: { id },
       data,
@@ -53,15 +66,23 @@ export const taskRepository = {
   },
 
   async delete(id: string): Promise<Task> {
-    return prisma.task.delete({ where: { id } });
+    return prisma.task.delete({
+      where: { id },
+    });
   },
 
   async toggle(id: string): Promise<Task> {
     const task = await this.findById(id);
-    if (!task) throw new Error("Task not found");
+
+    if (!task) {
+      throw new TaskNotFoundError(id);
+    }
+
     return prisma.task.update({
       where: { id },
-      data: { isActive: !task.isActive },
+      data: {
+        isActive: !task.isActive,
+      },
     });
   },
 };

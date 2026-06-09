@@ -1,6 +1,8 @@
 import { prisma } from "@core/db/prisma";
-import { UserStatus, TaskStatus } from "@prisma/client";
-import { userTaskRepository } from "@modules/user/repositories/user-task.repository";
+import { TaskStatus } from "@prisma/client";
+
+import { RewardNotEligibleError } from "../errors/reward-not-eligible.error";
+import { RewardAlreadyDistributedError } from "../errors/reward-already-distributed.error";
 
 export interface RewardResult {
   success: boolean;
@@ -23,11 +25,11 @@ export const distributeReward = async (
     });
 
     if (!userTask) {
-      throw new Error("Verified UserTask not found");
+      throw new RewardNotEligibleError(userId, taskId);
     }
 
     if (userTask.rewardGiven) {
-      throw new Error("Reward already distributed");
+      throw new RewardAlreadyDistributedError(userTask.id);
     }
 
     let participant = await tx.airdropParticipant.findUnique({
