@@ -74,17 +74,13 @@ export const buildMerkleSnapshot = (
     }
 
     return {
-      walletAddress:
-        entry.walletAddress,
+      walletAddress: entry.walletAddress,
 
-      proof:
-        proof.proof,
+      proof: proof.proof,
 
-      leaf:
-        proof.leaf,
+      leaf: proof.leaf,
 
-      amountWei:
-        entry.amountWei,
+      amountWei: entry.amountWei,
     };
   });
 
@@ -93,17 +89,14 @@ export const buildMerkleSnapshot = (
       .reduce(
         (sum, entry) =>
           sum +
-          BigInt(entry.amountWei),
-        0n
-      )
-      .toString();
+          BigInt(entry.amountWei),0n).toString();
 
   return {
     root: tree.root,
 
     entries,
 
-    proofs,
+    proofs:[],
 
     totalAmountWei,
 
