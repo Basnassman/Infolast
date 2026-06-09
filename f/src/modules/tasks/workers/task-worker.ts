@@ -3,13 +3,13 @@ import { UserStatus, TaskStatus } from "@prisma/client";
 import * as riskEngine from "@modules/user/risk/risk-engine.service";
 import * as rewardEngine from "@modules/tasks/rewards/reward.service";
 import * as fraudDetector from "@modules/user/fraud/fraud-detector.service";
-import { UserNotFoundError } from "../errors/user-not-found.error";
-import { UserInactiveError } from "../errors/user-inactive.error";
-import { TaskNotFoundError } from "../errors/task-not-found.error";
-import { TaskInactiveError } from "../errors/task-inactive.error";
-import { TaskSubmissionLimitReachedError } from "../errors/task-submission-limit-reached.error";
-import { UserTaskNotFoundError } from "../errors/user-task-not-found.error";
-import { TaskNotUnderReviewError } from "../errors/task-not-under-review.error";
+import { UserInactiveError } from "@modules/tasks/errors/user-inactive.error";
+import { TaskInactiveError } from "@modules/tasks/errors/task-inactive.error";
+import { TaskSubmissionLimitReachedError } from "@modules/tasks/errors/task-submission-limit-reached.error";
+import { TaskNotUnderReviewError } from "@modules/tasks/errors/task-not-under-review.error";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
+import { TaskNotFoundError } from "@modules/tasks/errors/task-not-found.error";
+import{UserTaskNotFoundError} from "@modules/tasks/errors/user-task-not-found.error";
 
 export interface TaskExecutionResult {
   status: TaskStatus;

@@ -1,6 +1,6 @@
-import { DomainError } from "@core/errors/base/domain-error";
+import { AppError } from "@core/errors/base/app-error";
 
-export class TaskInactiveError extends DomainError {
+export class TaskInactiveError extends AppError {
   constructor(taskId: string) {
     super(
       "TASK_INACTIVE",

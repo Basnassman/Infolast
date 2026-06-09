@@ -1,10 +1,10 @@
 import { AppError } from "./app-error";
 
-export class DomainError extends AppError {
+export class InfrastructureError extends AppError {
   constructor(
     code: string,
     message: string,
-    statusCode = 400
+    statusCode = 500
   ) {
     super(
       code,

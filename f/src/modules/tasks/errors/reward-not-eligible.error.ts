@@ -1,6 +1,6 @@
-import { DomainError } from "@core/errors/base/domain-error";
+import { AppError } from "@core/errors/base/app-error";
 
-export class RewardNotEligibleError extends DomainError {
+export class RewardNotEligibleError extends AppError {
   constructor(userId: string, taskId: string) {
     super(
       "REWARD_NOT_ELIGIBLE",

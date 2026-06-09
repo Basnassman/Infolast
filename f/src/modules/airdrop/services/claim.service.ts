@@ -3,6 +3,9 @@ import { validateClaim } from "@modules/airdrop/services/claim-validation.servic
 import { syncClaimTransaction } from "@modules/airdrop/services/claim-sync.service";
 import { prisma } from "@core/db/prisma";
 import { ClaimStatusResult } from "@modules/airdrop/types/airdrop.types";
+import { ClaimNotEligibleError } from "@modules/airdrop/errors/claim-not-eligible.error";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
+import { AirdropParticipantNotFoundError } from "@modules/airdrop/errors/airdrop-participant-not-found.error"
 
 export const getClaimStatus = async (walletAddress: string): Promise<ClaimStatusResult> => {
   const normalized = walletAddress.toLowerCase();
@@ -46,7 +49,9 @@ export const recordClaim = async (walletAddress: string, txHash: string) => {
   const validation = await validateClaim(walletAddress);
 
   if (!validation.valid) {
-    throw new Error(validation.reason);
+    throw new ClaimNotEligibleError(
+  validation.reason || "Claim validation failed"
+  );
   }
 
   const user = await prisma.user.findUnique({
@@ -54,7 +59,7 @@ export const recordClaim = async (walletAddress: string, txHash: string) => {
   });
 
   if (!user) {
-    throw new Error("User not found");
+  throw new UserNotFoundError(walletAddress);
   }
 
   const airdropParticipant = await prisma.airdropParticipant.findUnique({
@@ -62,7 +67,9 @@ export const recordClaim = async (walletAddress: string, txHash: string) => {
   });
 
   if (!airdropParticipant) {
-    throw new Error("Airdrop participant not found");
+  throw new AirdropParticipantNotFoundError(
+    user.id
+  );
   }
 
   const claim = await createClaim({

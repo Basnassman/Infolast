@@ -1,6 +1,6 @@
-import { DomainError } from "@core/errors/base/domain-error";
+import { AppError } from "@core/errors/base/app-error";
 
-export class UserInactiveError extends DomainError {
+export class UserInactiveError extends AppError {
   constructor(userId: string) {
     super(
       "USER_INACTIVE",

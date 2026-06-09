@@ -1,5 +1,6 @@
 import { prisma } from "@core/db/prisma";
 import { UserTask, TaskStatus } from "@prisma/client";
+import { UserTaskNotFoundError } from "@modules/user/errors/user-task-not-found.error";
 
 export interface CreateUserTaskInput {
   userId: string;
@@ -100,10 +101,14 @@ export const userTaskRepository = {
   async updateByUserAndTask(
     userId: string,
     taskId: string,
-    data: UpdateUserTaskInput
-  ): Promise<UserTask> {
+    data: UpdateUserTaskInput): 
+    Promise<UserTask> {
     const userTask = await this.findByUserAndTask(userId, taskId);
-    if (!userTask) throw new Error("UserTask not found");
+    
+
+  if (!userTask) {
+    throw new UserTaskNotFoundError(userId, taskId);
+  }
     return this.update(userTask.id, data);
   },
 

@@ -3,6 +3,7 @@ import { prisma } from "@core/db/prisma";
 import { getActiveMerkleRoot } from "@modules/airdrop/repositories/merkle-root.repository";
 import { getWalletProof } from "@modules/airdrop/repositories/merkle-proof.repository";
 import { verifyProof } from "@modules/airdrop/merkle/tree.service";
+import { ClaimValidationReason } from "@modules/airdrop/domain/claim-validation-reason"
 
 export interface ClaimValidationResult {
   valid: boolean;
@@ -25,36 +26,36 @@ export const validateClaim = async (
   });
 
   if (!user) {
-    return { valid: false, reason: "User not found" };
+    return { valid: false, reason: ClaimValidationReason.USER_NOT_FOUND };
   }
 
   if (user.status !== UserStatus.ACTIVE) {
-    return { valid: false, reason: "User is not active" };
+    return { valid: false, reason: ClaimValidationReason.USER_NOT_ACTIVE };
   }
 
   // 2️⃣ active root
   const activeRoot = await getActiveMerkleRoot();
 
   if (!activeRoot) {
-    return { valid: false, reason: "No active merkle root" };
+    return { valid: false, reason: ClaimValidationReason.NO_ACTIVE_MERKLE_ROOT };
   }
 
   // 3️⃣ proof
   const proof = await getWalletProof(normalized); // ✅ إصلاح: استدعاء مباشر
 
   if (!proof) {
-    return { valid: false, reason: "Proof not found" };
+    return { valid: false, reason: ClaimValidationReason.PROOF_NOT_FOUND };
   }
 
   if (BigInt(proof.amountWei) <= 0n) {
-    return { valid: false, reason: "Invalid allocation" };
+    return { valid: false, reason: ClaimValidationReason.INVALID_ALLOCATION };
   }
 
   if (
     !Array.isArray(proof.proof) ||
     !proof.proof.every((item) => typeof item === "string")
   ) {
-    return { valid: false, reason: "Invalid merkle proof data" };
+    return { valid: false, reason: ClaimValidationReason.INVALID_PROOF_DATA };
   }
 
   // ✅ إصلاح: التحقق من المطالبة عبر airdropParticipantId وليس merkleRootId
@@ -74,14 +75,14 @@ export const validateClaim = async (
   });
 
   if (existingClaim) {
-    return { valid: false, reason: "Already claimed" };
+    return { valid: false, reason: ClaimValidationReason.ALREADY_CLAIMED };
   }
 
   // 5️⃣ verify proof
   const verified = verifyProof(activeRoot.root, proof.leaf, proof.proof as string[]);
 
   if (!verified) {
-    return { valid: false, reason: "Invalid merkle proof" };
+    return { valid: false, reason: ClaimValidationReason.INVALID_MERKLE_PROOF };
   }
 
   return {

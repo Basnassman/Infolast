@@ -1,8 +1,6 @@
 import { prisma } from "@core/db/prisma";
-import {
-  RiskLevel,
-  UserStatus,
-} from "@prisma/client";
+import { RiskLevel, UserStatus, } from "@prisma/client";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
 
 export interface RiskResult {
   score: number;
@@ -47,9 +45,7 @@ export const analyzeRisk = async (
     });
 
   if (!user) {
-    throw new Error(
-      "User not found"
-    );
+  throw new UserNotFoundError(userId);
   }
 
   // =====================================

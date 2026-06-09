@@ -1,5 +1,6 @@
 import { prisma } from "@core/db/prisma";
 import { RiskLevel } from "@prisma/client";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
 
 /**
  * =====================================================
@@ -117,9 +118,7 @@ export const updateUserClassification =
       });
 
     if (!user) {
-      throw new Error(
-        "User not found"
-      );
+    throw new UserNotFoundError(userId);
     }
 
     // =====================================
@@ -205,7 +204,7 @@ export const updateUserClassification =
     }
 
     return {
-      userId,
+     userId,
 
       powerScore,
 

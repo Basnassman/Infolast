@@ -1,15 +1,8 @@
-import {
-  buildMerkleTree,
-  AirdropEntry,
-} from "@modules/airdrop/merkle/tree.service";
-
-import {
-  generateAllProofs, 
-} from "@modules/airdrop/merkle/proof.service";
-
-import {
-  AirdropParticipantView,
-} from "@modules/airdrop/domain/airdrop.types";
+import { buildMerkleTree, AirdropEntry,} from "@modules/airdrop/merkle/tree.service";
+import { generateAllProofs, } from "@modules/airdrop/merkle/proof.service";
+import { AirdropParticipantView,} from "@modules/airdrop/domain/airdrop.types";
+import { MerkleProofGenerationError } from "@modules/airdrop/errors/merkle-proof-generation.error";
+import { MerkleTreeBuildError } from "@modules/airdrop/errors/merkle-tree-build.error";
 
 const CHAIN_ID = 11155111;
 
@@ -50,9 +43,7 @@ export const buildMerkleSnapshot = (
     );
 
   if (!tree) {
-    throw new Error(
-      "Unable to build Merkle tree"
-    );
+  throw new MerkleTreeBuildError();
   }
 
   const proofsMap =
@@ -68,10 +59,10 @@ export const buildMerkleSnapshot = (
       );
 
     if (!proof) {
-      throw new Error(
-        `Missing proof for ${entry.walletAddress}`
-      );
-    }
+    throw new MerkleProofGenerationError(
+    entry.walletAddress
+  );
+  }
 
     return {
       walletAddress: entry.walletAddress,
@@ -96,7 +87,7 @@ export const buildMerkleSnapshot = (
 
     entries,
 
-    proofs:[],
+    proofs,
 
     totalAmountWei,
 

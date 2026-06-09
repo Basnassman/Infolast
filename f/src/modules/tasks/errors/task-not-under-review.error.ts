@@ -1,6 +1,6 @@
-import { DomainError } from "@core/errors/base/domain-error";
+import { AppError } from "@core/errors/base/app-error";
 
-export class TaskNotUnderReviewError extends DomainError {
+export class TaskNotUnderReviewError extends AppError {
   constructor(userTaskId: string) {
     super(
       "TASK_NOT_UNDER_REVIEW",
