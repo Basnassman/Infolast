@@ -1,17 +1,9 @@
 import { Queue } from "bullmq";
 
-import IORedis from "ioredis";
-
-import { env } from "@core/config/env";
+import { redis } from "@core/cache/redis";
 
 const connection =
-  new IORedis(
-    env.redisUrl,
-    {
-      maxRetriesPerRequest:
-        null,
-    }
-  ) as any;
+  redis.duplicate() as any;
 
 export const rebuildQueue =
   new Queue(

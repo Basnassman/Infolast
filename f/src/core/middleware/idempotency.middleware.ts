@@ -4,11 +4,7 @@ import {
   NextFunction,
 } from "express";
 
-import { redis } from "../../core/cache/redis";
-
-import { CACHE_KEYS } from "../../core/cache/cache.keys";
-
-import { CACHE_TTL } from "../../core/cache/cache-ttl";
+import { idempotencyCache } from "@core/cache/stores/idempotency-cache";
 
 export const idempotencyMiddleware =
   async (
@@ -38,14 +34,9 @@ export const idempotencyMiddleware =
       });
     }
 
-    const redisKey =
-      CACHE_KEYS.idempotency(
-        key
-      );
-
     const exists =
-      await redis.exists(
-        redisKey
+      await idempotencyCache.exists(
+        key
       );
 
     if (exists) {
@@ -62,11 +53,8 @@ export const idempotencyMiddleware =
       });
     }
 
-    await redis.set(
-      redisKey,
-      "1",
-      "EX",
-      CACHE_TTL.idempotency
+    await idempotencyCache.mark(
+      key
     );
 
     next();

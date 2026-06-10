@@ -1,17 +1,41 @@
-import { redis } from "../cache/redis";
+import { redis } from "./redis";
+
+import { CacheReadError } from "@core/errors/infrastructure/cache/cache-read.error";
+import { CacheWriteError } from "@core/errors/infrastructure/cache/cache-write.error";
+import { CacheDeleteError } from "@core/errors/infrastructure/cache/cache-delete.error";
+import { CacheParseError } from "@core/errors/infrastructure/cache/cache-parse.error";
 
 export const cacheService = {
   async get<T>(
     key: string
   ): Promise<T | null> {
-    const value =
-      await redis.get(key);
+    let value: string | null;
+
+    try {
+      value = await redis.get(key);
+    } catch (error) {
+      throw new CacheReadError(
+        key,
+        error instanceof Error
+          ? error.message
+          : undefined
+      );
+    }
 
     if (!value) {
       return null;
     }
 
-    return JSON.parse(value);
+    try {
+      return JSON.parse(value) as T;
+    } catch (error) {
+      throw new CacheParseError(
+        key,
+        error instanceof Error
+          ? error.message
+          : undefined
+      );
+    }
   },
 
   async set(
@@ -19,38 +43,89 @@ export const cacheService = {
     value: unknown,
     ttlSeconds?: number
   ): Promise<void> {
-    const serialized =
-      JSON.stringify(value);
+    try {
+      const serialized =
+        JSON.stringify(value);
 
-    if (ttlSeconds) {
+      if (ttlSeconds) {
+        await redis.set(
+          key,
+          serialized,
+          "EX",
+          ttlSeconds
+        );
+
+        return;
+      }
+
       await redis.set(
         key,
-        serialized,
-        "EX",
-        ttlSeconds
+        serialized
       );
-
-      return;
+    } catch (error) {
+      throw new CacheWriteError(
+        key,
+        error instanceof Error
+          ? error.message
+          : undefined
+      );
     }
-
-    await redis.set(
-      key,
-      serialized
-    );
   },
 
   async del(
     key: string
   ): Promise<void> {
-    await redis.del(key);
+    try {
+      await redis.del(key);
+    } catch (error) {
+      throw new CacheDeleteError(
+        key,
+        error instanceof Error
+          ? error.message
+          : undefined
+      );
+    }
   },
 
   async exists(
     key: string
   ): Promise<boolean> {
-    const exists =
-      await redis.exists(key);
+    try {
+      const exists =
+        await redis.exists(key);
 
-    return exists === 1;
+      return Boolean(exists);
+    } catch (error) {
+      throw new CacheReadError(
+        key,
+        error instanceof Error
+          ? error.message
+          : undefined
+      );
+    }
+  },
+
+  async remember<T>(
+    key: string,
+    ttlSeconds: number,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    const cached =
+      await this.get<T>(key);
+
+    if (cached !== null) {
+      return cached;
+    }
+
+    const value =
+      await callback();
+
+    await this.set(
+      key,
+      value,
+      ttlSeconds
+    );
+
+    return value;
   },
 };

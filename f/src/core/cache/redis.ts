@@ -5,13 +5,8 @@ import { env } from "../config/env";
 export const redis =
   new IORedis(
     env.redisUrl,
-    {
-      maxRetriesPerRequest:
-        null,
-
-      enableReadyCheck:
-        true,
-
+    { maxRetriesPerRequest: null,
+      enableReadyCheck: true,
       lazyConnect: false,
     }
   );

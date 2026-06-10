@@ -1,26 +1,62 @@
-import { redis } from "../../core/cache/redis";
+import crypto from "crypto";
 
-export const distributedLockService =
-  {
-    async acquire(
-      key: string,
-      ttlSeconds: number
-    ): Promise<boolean> {
-      const result =
-        await redis.set(
-          key,
-          "locked",
-          "EX",
-          ttlSeconds,
-          "NX"
-        );
+import { redis } from "@core/cache/redis";
 
-      return result === "OK";
-    },
+import { LockHandle } from "./lock.types";
 
-    async release(
-      key: string
-    ): Promise<void> {
-      await redis.del(key);
-    },
-  };
+export const distributedLockService = {
+  async acquire(
+    key: string,
+    ttlSeconds: number
+  ): Promise<LockHandle | null> {
+    const token =
+      crypto.randomUUID();
+
+    const result =
+      await redis.set(
+        key,
+        token,
+        "EX",
+        ttlSeconds,
+        "NX"
+      );
+
+    if (result !== "OK") {
+      return null;
+    }
+
+    return {
+      key,
+      token,
+    };
+  },
+
+  async release(
+    lock: LockHandle
+  ): Promise<boolean> {
+    const currentToken =
+      await redis.get(lock.key);
+
+    if (
+      currentToken !==
+      lock.token
+    ) {
+      return false;
+    }
+
+    await redis.del(
+      lock.key
+    );
+
+    return true;
+  },
+
+  async isLocked(
+    key: string
+  ): Promise<boolean> {
+    return (
+      (await redis.exists(key))
+      === 1
+    );
+  },
+};

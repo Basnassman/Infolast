@@ -1,6 +1,7 @@
 import { MerkleTree } from "merkletreejs";
 import keccak256 from "keccak256";
 import { hashLeaf, normalizeWallet } from "@modules/airdrop/merkle/hash.service";
+import { validateUniqueWallets } from "../utils/validate-unique-wallets";
 
 const DEFAULT_CHAIN_ID = 11155111;
 
@@ -20,17 +21,6 @@ export interface MerkleTreeResult {
   tree: MerkleTree;
   leaves: MerkleLeafNode[];
 }
-
-const validateUniqueWallets = (entries: AirdropEntry[]) => {
-  const wallets = new Set<string>();
-  for (const entry of entries) {
-    const normalized = normalizeWallet(entry.walletAddress);
-    if (wallets.has(normalized)) {
-      throw new Error(`Duplicate wallet detected: ${normalized}`);
-    }
-    wallets.add(normalized);
-  }
-};
 
 export const buildMerkleTree = (
   entries: AirdropEntry[],

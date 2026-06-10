@@ -1,21 +1,13 @@
 import { Worker } from "bullmq";
-
-import IORedis from "ioredis";
-
 import { rebuildAndSync } from "@modules/airdrop/workers/rebuild.worker";
-
 import { logger } from "@core/logger/logger";
+import { redis } from "@core/cache/redis";
 
-import { env } from "@core/config/env";
+
 
 const connection =
-  new IORedis(
-    env.redisUrl,
-    {
-      maxRetriesPerRequest:
-        null,
-    }
-  ) as any;
+  redis.duplicate() as any;
+
 
 export const rebuildWorker =
   new Worker(
