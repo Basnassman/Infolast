@@ -1,7 +1,8 @@
 import { MerkleTree } from "merkletreejs";
 import keccak256 from "keccak256";
-import { hashLeaf, normalizeWallet } from "@modules/airdrop/merkle/hash.service";
-import { validateUniqueWallets } from "../utils/validate-unique-wallets";
+import { hashLeaf } from "@modules/airdrop/merkle/hash.service";
+import { validateUniqueWallets } from "@modules/airdrop/utils/validate-unique-wallets";
+import { normalizeWallet } from "@shared/utils/wallet";
 
 const DEFAULT_CHAIN_ID = 11155111;
 

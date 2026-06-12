@@ -1,14 +1,8 @@
 import { prisma } from "@core/db/prisma";
 import { UserStatus } from "@prisma/client";
+import { normalizeWallet } from "@shared/utils/wallet";
 
-/**
- * Normalize wallet address
- */
-export const normalizeWallet = (
-  wallet: string
-): string => {
-  return wallet.trim().toLowerCase();
-};
+
 
 /**
  * Get existing user by wallet

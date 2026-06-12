@@ -1,5 +1,5 @@
-import { AirdropEntry } from "../merkle/tree.service";
-import { normalizeWallet } from "@modules/airdrop/merkle/hash.service";
+import { AirdropEntry } from "@modules/airdrop/merkle/tree.service";
+import { normalizeWallet } from "@shared/utils/wallet";
 import { DuplicateWalletError } from "@core/errors/domain/airdrop/duplicate-wallet.error";
 
 export const validateUniqueWallets = (

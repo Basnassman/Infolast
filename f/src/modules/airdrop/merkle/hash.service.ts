@@ -1,11 +1,9 @@
 import keccak256 from "keccak256";
 import { ethers } from "ethers";
+import { normalizeWallet } from "@shared/utils/wallet";
 
 const DEFAULT_CHAIN_ID = 11155111;
 
-export const normalizeWallet = (wallet: string): string => {
-  return ethers.getAddress(wallet);
-};
 
 export const hashLeaf = (
   wallet: string,

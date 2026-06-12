@@ -1,6 +1,7 @@
-import { hashLeaf, normalizeWallet } from "@modules/airdrop/merkle/hash.service";
+import { hashLeaf } from "@modules/airdrop/merkle/hash.service";
 import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service";
 import { validateUniqueWallets } from "../utils/validate-unique-wallets";
+import { normalizeWallet } from "@shared/utils/wallet";
 
 const DEFAULT_CHAIN_ID = 11155111;
 
