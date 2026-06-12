@@ -14,7 +14,7 @@ export interface MerkleSnapshot {
 
   proofs: {
     walletAddress: string;
-    proofs: string[];
+    proof: string[];
     leaf: string;
     amountWei: string;
   }[];
@@ -71,7 +71,7 @@ export const buildMerkleSnapshot = (
 
       leaf: proof.leaf,
 
-      amountWei: entry.amountWei,
+      amountWei: String(entry.amountWei),
     };
   });
 

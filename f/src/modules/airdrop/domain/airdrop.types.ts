@@ -41,7 +41,14 @@ export interface AllocationResult {
   allocationWei: string;
 
   allocationTokens: string;
+  points?: number;        // ← أضف
+  multiplier?: number; 
 
+  reason?: string | null;
+}
+
+export interface EligibilityResult {
+  eligible: boolean;
   reason?: string | null;
 }
 
@@ -83,4 +90,10 @@ export interface CreateMerkleRootInput {
   totalAmountWei: string;
 
   ipfsSnapshotUrl?: string | null;
+}
+
+export interface AllocationInput {
+  walletAddress: string;
+  points: number;
+  totalPurchasedUsd?: number;  // للـ multiplier
 }
