@@ -1,16 +1,13 @@
-import {
-  Express,
-} from "express";
+import { Express } from "express";
+import  authRoutes  from "@modules/auth/routes/auth.routes";
+import  airdropRoutes  from "@modules/airdrop/routes/airdrop.routes";
+import  adminRoutes  from "@modules/admin/routes/admin.routes";
+import  taskRoutes from "@modules/tasks/routes/task.routes";
+import { rebuildAndSync } from "@modules/airdrop/workers/rebuild.worker";
+import { prometheusHandler } from "@core/monitoring/prometheus";
+import { readinessHandler } from "@core/monitoring/readiness";
+import { env } from "@core/config/env";
 
-import authRoutes from "../../modules/auth/routes/auth.routes";
-
-import airdropRoutes from "../../modules/airdrop/routes/airdrop.routes";
-
-import adminRoutes from "../../modules/admin/routes/admin.routes";
-
-import taskRoutes from "../../modules/tasks/routes/task.routes";
-
-import { rebuildAndSync } from "../../modules/airdrop/workers/rebuild.worker";
 
 export const registerRoutes = (
   app: Express
@@ -30,7 +27,7 @@ export const registerRoutes = (
 
   app.post("/api/v1/internal/rebuild", async (req, res) => {
   const secret = req.headers["x-admin-secret"];
-  const adminSecret = process.env.ADMIN_SECRET;
+  const adminSecret = env.adminSecret;
 
   if (!adminSecret || secret !== adminSecret) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -64,4 +61,8 @@ export const registerRoutes = (
     "/api/v1/admin",
     adminRoutes
   );
+
+app.get("/metrics", prometheusHandler);
+app.get("/ready", readinessHandler);
+
 };

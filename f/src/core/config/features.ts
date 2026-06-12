@@ -1,5 +1,6 @@
-// src/config/features.ts
+import { env } from "./env";
+
 export const FEATURES = {
-  ANTI_SYBIL: process.env.ENABLE_SYBIL === "true",
-  EMERGENCY_PAUSE: process.env.ENABLE_PAUSE === "true",
+  ANTI_SYBIL:      env.features.antiSybil,
+  EMERGENCY_PAUSE:  env.features.emergencyPause,
 };

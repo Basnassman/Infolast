@@ -1,11 +1,11 @@
-// src/services/task-verification.bot.ts
 import { Task, TaskPlatform } from "@prisma/client";
+import { env } from "@core/config/env";
 
-const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
+const TWITTER_BEARER_TOKEN = env.verification.twitterBearerToken;
+const TELEGRAM_BOT_TOKEN   = env.telegram.botToken;
+const TELEGRAM_GROUP_ID    = env.telegram.groupId;
+const YOUTUBE_API_KEY      = env.verification.youtubeApiKey;
+const YOUTUBE_CHANNEL_ID   = env.verification.youtubeChannelId;
 
 /**
  * 🤖 Task Verification Bot - REAL APIs

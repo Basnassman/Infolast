@@ -3,6 +3,7 @@ import { authenticateWallet } from "@core/middleware/auth.middleware";
 import { walletRateLimit } from "@core/middleware/rate-limit.middleware";
 import { validateRequest } from "@core/middleware/validate-request.middleware";
 import { asyncHandler } from "@core/utils/async-handler";
+import { idempotencyMiddleware } from "@core/middleware/idempotency.middleware";
 
 import {
   checkEligibility,
@@ -39,6 +40,7 @@ router.get(
 router.post(
   "/claim",
   authenticateWallet,
+  idempotencyMiddleware,
   claimAirdrop
 );
 

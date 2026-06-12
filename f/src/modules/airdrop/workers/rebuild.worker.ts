@@ -2,11 +2,12 @@ import { prisma } from "@core/db/prisma";
 import { DistributionType, MerkleJobStatus } from "@prisma/client";
 import { recalculateAllocations } from "@modules/airdrop/services/allocation.service";
 import { getEligibleParticipants } from "@modules/airdrop/services/participant.service";
-import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service"; // ✅ إصلاح: buildMerkleTree من tree.service
+import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service";
 import { pushMerkleRoot } from "@modules/airdrop/services/merkle-sync.service";
 import { isRebuildNeeded } from "@modules/airdrop/services/rebuild-check.service";
 import { createMerkleRoot, updateMerkleRootTxHash } from "@modules/airdrop/repositories/merkle-root.repository";
 import { saveMerkleProofs } from "@modules/airdrop/repositories/merkle-proof.repository";
+import { env } from "@core/config/env";
 
 export interface RebuildResult {
   success: boolean;
@@ -119,16 +120,9 @@ export const rebuildAndSync = async (): Promise<RebuildResult> => {
 
     // 6️⃣ push root onchain
     const now = Math.floor(Date.now() / 1000);
-    const claimStart = Number(process.env.CLAIM_START || now);
-    const claimEnd = Number(process.env.CLAIM_END ); // 90 يوم
-    console.log({
-    now,
-    claimStart,
-    claimEnd,
-    diffDays: (claimEnd - now) / 86400,
-    });
-    const cap = BigInt(process.env.CLAIM_CAP_WEI || snapshot.totalAmountWei);
-
+    const claimStart = env.airdrop.claimStart || now;
+    const claimEnd = env.airdrop.claimEnd;
+    const cap = BigInt(env.airdrop.claimCapWei ?? snapshot.totalAmountWei);
     const txHash = await pushMerkleRoot(snapshot.root, claimStart, claimEnd, cap);
 
     // 7️⃣ update tx hash

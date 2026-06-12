@@ -2,8 +2,9 @@ import express, {
   Express,
 } from "express";
 
-import cors from "cors";
-import helmet from "helmet";
+import { corsMiddleware,  } from "@core/security/cors";
+import { helmetMiddleware } from "@core/security/helmet";
+import { sanitizeMiddleware } from "@core/security/sanitize";
 import compression from "compression";
 import { requestIdMiddleware } from "../../core/logger/request-id.middleware";
 
@@ -12,28 +13,21 @@ import { requestLogger } from "../../core/logger/request-logger.middleware";
 export const registerMiddlewares = (
   app: Express
 ): void => {
-  app.use(
-    cors({
-      origin: true,
-      credentials: true,
-    })
+  app.use(corsMiddleware
+    
   );
 
-  app.use(
-    helmet()
-  );
+  app.use(helmetMiddleware);
 
   app.use(
     compression()
   );
 
-  app.use(
-  requestIdMiddleware
-);
+  app.use(requestIdMiddleware);
+  
+  app.use(requestLogger);
 
-app.use(
-  requestLogger
-);
+  app.use(sanitizeMiddleware);
 
   app.use(
     express.json({
