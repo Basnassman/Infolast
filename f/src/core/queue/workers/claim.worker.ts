@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { logger } from "@core/logger/logger";
 import { redis } from "@core/cache/redis";
-
+import { recordClaim } from "@modules/airdrop/services/claim.service";
 
 
 const connection =
@@ -16,9 +16,9 @@ export const claimWorker =
         jobId: job.id,
         data: job.data,
       });
-    },
+    
+    const { walletAddress, txHash } = job.data;
+  await recordClaim(walletAddress, txHash); 
 
-    {
-      connection,
-    }
-  );
+    }, 
+    { connection });

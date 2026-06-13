@@ -1,1 +1,3 @@
-import "../../src/core/workers/merkle-worker";
+import "../../src/core/queue/workers/claim.worker";
+import "../../src/core/queue/workers/task.worker";
+import "../../src/core/queue/workers/rebuild.worker";
