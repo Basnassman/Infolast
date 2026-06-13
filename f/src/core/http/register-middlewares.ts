@@ -1,18 +1,16 @@
-import express, {
-  Express,
-} from "express";
-
+import  express, { Express } from "express";
 import { corsMiddleware,  } from "@core/security/cors";
 import { helmetMiddleware } from "@core/security/helmet";
 import { sanitizeMiddleware } from "@core/security/sanitize";
 import compression from "compression";
-import { requestIdMiddleware } from "../../core/logger/request-id.middleware";
-
-import { requestLogger } from "../../core/logger/request-logger.middleware";
+import { requestIdMiddleware } from "@core/logger/request-id.middleware";
+import { requestLogger } from "@core/logger/request-logger.middleware";
 
 export const registerMiddlewares = (
   app: Express
 ): void => {
+
+  app.options(/,*/,corsMiddleware);
   app.use(corsMiddleware
     
   );
