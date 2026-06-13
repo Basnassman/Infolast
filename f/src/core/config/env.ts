@@ -32,7 +32,7 @@ export const env = {
   // ── App ───────────────────────────────────────────────────────────────
   nodeEnv:      optional(process.env.NODE_ENV, "development"),
   port:         optionalNumber(process.env.PORT, 3000),
-  appUrl:       optional(process.env.APP_URL, "http://localhost:3000"),
+  appUrl:       optional(process.env.APP_URL, "APP_URL"),
   isProduction: process.env.NODE_ENV === "production",
 
   // ── Database ──────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export const env = {
 
   // ── Airdrop / Merkle ──────────────────────────────────────────────────
   airdrop: {
-    claimStart:  optionalNumber(process.env.CLAIM_START, 0), // 0 = وقت التشغيل
+    claimStart:  optionalNumber(process.env.CLAIM_START, 0), 
     claimEnd:    requiredNumber(process.env.CLAIM_END, "CLAIM_END"),
     claimCapWei: process.env.CLAIM_CAP_WEI, // اختياري: يُحسب من المخصصات
   },
