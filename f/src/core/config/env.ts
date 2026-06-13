@@ -46,7 +46,7 @@ export const env = {
   appSecret:   optional(process.env.APP_SECRET, ""),
 
   // ── CORS ──────────────────────────────────────────────────────────────
-  corsOrigin: (process.env.CORS_ORIGIN as string | boolean) ?? true,
+  corsOrigin: process.env.CORS_ORIGIN?.split(",") || "*",
 
   // ── Blockchain ────────────────────────────────────────────────────────
   rpcUrl:     required(process.env.RPC_URL, "RPC_URL"),
