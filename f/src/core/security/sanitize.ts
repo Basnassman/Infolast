@@ -57,21 +57,37 @@ const sanitizeObject =
     return value;
   };
 
-export const sanitizeMiddleware =
-  (
-    req: Request,
-    _: Response,
-    next: NextFunction
-  ) => {
-    req.body =
-      sanitizeObject(
-        req.body
-      );
+export const sanitizeMiddleware = (
+  req: Request,
+  _: Response,
+  next: NextFunction
+) => {
 
-    req.query =
-      sanitizeObject(
-        req.query
-      ) as Request["query"];
+  const sanitizedBody =
+    sanitizeObject(req.body);
 
-    next();
-  };
+  if (
+    sanitizedBody &&
+    typeof sanitizedBody === "object"
+  ) {
+    Object.assign(
+      req.body,
+      sanitizedBody
+    );
+  }
+
+  const sanitizedQuery =
+    sanitizeObject(req.query);
+
+  if (
+    sanitizedQuery &&
+    typeof sanitizedQuery === "object"
+  ) {
+    Object.assign(
+      req.query,
+      sanitizedQuery
+    );
+  }
+
+  next();
+};
