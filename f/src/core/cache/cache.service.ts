@@ -1,131 +1,67 @@
 import { redis } from "./redis";
+import { logger } from "@core/logger/logger"; // أو console.error
 
-import { CacheReadError } from "@core/errors/infrastructure/cache/cache-read.error";
 import { CacheWriteError } from "@core/errors/infrastructure/cache/cache-write.error";
 import { CacheDeleteError } from "@core/errors/infrastructure/cache/cache-delete.error";
-import { CacheParseError } from "@core/errors/infrastructure/cache/cache-parse.error";
 
 export const cacheService = {
-  async get<T>(
-    key: string
-  ): Promise<T | null> {
-    let value: string | null;
-
+  async get<T>(key: string): Promise<T | null> {
     try {
-      value = await redis.get(key);
+      const value = await redis.get(key);
+      if (!value) return null;
+      try {
+        return JSON.parse(value) as T;
+      } catch {
+        // بيانات تالفة في الـ cache - نتجاهلها ونرجع null
+        return null;
+      }
     } catch (error) {
-      throw new CacheReadError(
-        key,
-        error instanceof Error
-          ? error.message
-          : undefined
-      );
-    }
-
-    if (!value) {
+      // Redis غير متاح - نتجاهل الـ cache ونكمل من الـ DB
+      console.error("[Cache] get failed, bypassing cache:", key, error);
       return null;
     }
-
-    try {
-      return JSON.parse(value) as T;
-    } catch (error) {
-      throw new CacheParseError(
-        key,
-        error instanceof Error
-          ? error.message
-          : undefined
-      );
-    }
   },
 
-  async set(
-    key: string,
-    value: unknown,
-    ttlSeconds?: number
-  ): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
     try {
-      const serialized =
-        JSON.stringify(value);
-
+      const serialized = JSON.stringify(value);
       if (ttlSeconds) {
-        await redis.set(
-          key,
-          serialized,
-          "EX",
-          ttlSeconds
-        );
-
-        return;
+        await redis.set(key, serialized, "EX", ttlSeconds);
+      } else {
+        await redis.set(key, serialized);
       }
-
-      await redis.set(
-        key,
-        serialized
-      );
     } catch (error) {
-      throw new CacheWriteError(
-        key,
-        error instanceof Error
-          ? error.message
-          : undefined
-      );
+      // فشل الكتابة في الـ cache ليس كارثياً
+      console.error("[Cache] set failed:", key, error);
+      // لا نرمي خطأ - نكمل بدون cache
     }
   },
 
-  async del(
-    key: string
-  ): Promise<void> {
+  async del(key: string): Promise<void> {
     try {
       await redis.del(key);
     } catch (error) {
       throw new CacheDeleteError(
         key,
-        error instanceof Error
-          ? error.message
-          : undefined
+        error instanceof Error ? error.message : undefined
       );
     }
   },
 
-  async exists(
-    key: string
-  ): Promise<boolean> {
+  async exists(key: string): Promise<boolean> {
     try {
-      const exists =
-        await redis.exists(key);
-
+      const exists = await redis.exists(key);
       return Boolean(exists);
     } catch (error) {
-      throw new CacheReadError(
-        key,
-        error instanceof Error
-          ? error.message
-          : undefined
-      );
+      return false; // عند الشك نعتبر الـ key غير موجود
     }
   },
 
-  async remember<T>(
-    key: string,
-    ttlSeconds: number,
-    callback: () => Promise<T>
-  ): Promise<T> {
-    const cached =
-      await this.get<T>(key);
-
-    if (cached !== null) {
-      return cached;
-    }
-
-    const value =
-      await callback();
-
-    await this.set(
-      key,
-      value,
-      ttlSeconds
-    );
-
+  async remember<T>(key: string, ttlSeconds: number, callback: () => Promise<T>): Promise<T> {
+    const cached = await this.get<T>(key);
+    if (cached !== null) return cached;
+    const value = await callback();
+    await this.set(key, value, ttlSeconds); // لن يرمي خطأ حتى لو Redis فشل
     return value;
   },
 };

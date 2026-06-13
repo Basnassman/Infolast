@@ -1,4 +1,3 @@
-/*
 import  app  from "../../src/app";
 
 app.listen(
@@ -8,4 +7,4 @@ app.listen(
       "API running"
     );
   }
-);*/
+);
