@@ -1,0 +1,24 @@
+{
+  "name": "infov",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ahmad4664/Infov.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Ahmad4664/Infov/issues"
+  },
+  "homepage": "https://github.com/Ahmad4664/Infov#readme",
+  "dependencies": {
+    "freebuff": "^0.0.107"
+  }
+}

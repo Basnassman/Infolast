@@ -10,10 +10,7 @@ export const registerMiddlewares = (
   app: Express
 ): void => {
 
-  app.options(/,*/,corsMiddleware);
-  app.use(corsMiddleware
-    
-  );
+  app.use(corsMiddleware);
 
   app.use(helmetMiddleware);
 
