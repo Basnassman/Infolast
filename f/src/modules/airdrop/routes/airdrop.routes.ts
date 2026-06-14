@@ -22,12 +22,14 @@ const router = Router();
 router.get(
   "/eligibility",
   walletRateLimit,
+  validateRequest(eligibilitySchema),
   checkEligibility
 );
 
 router.get(
   "/proof",
   walletRateLimit,
+  validateRequest(proofRequestSchema),
   getProof
 );
 

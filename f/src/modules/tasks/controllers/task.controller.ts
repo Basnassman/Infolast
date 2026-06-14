@@ -3,9 +3,13 @@ import { asyncHandler } from "@core/utils/async-handler";
 import { successResponse } from "@core/api/responses/success.response";
 import { normalizeTask, normalizeTaskSubmission, normalizeUserTask } from "@core/api/normalizers/task.normalizer";
 import { taskService } from "../services/task.service";
+import { isValidWallet } from "@shared/utils/wallet";
 
 export const getTasksController = asyncHandler(async (req: Request, res: Response) => {
-  const walletAddress = String(req.query.walletAddress || "");
+  const walletAddress = (req.query.walletAddress as string) || "";
+  if (!walletAddress || !isValidWallet(walletAddress)) {
+    return successResponse(res, []);
+  }
   const tasks = await taskService.getAvailableTasks(walletAddress);
   return successResponse(res, tasks.map(normalizeTask));
 });
@@ -22,7 +26,10 @@ export const submitTaskController = asyncHandler(async (req: Request, res: Respo
 });
 
 export const getTaskHistoryController = asyncHandler(async (req: Request, res: Response) => {
-  const walletAddress = String(req.query.walletAddress || req.walletAddress || "");
+  const walletAddress = (req.query.walletAddress as string) || (req.walletAddress as string) || "";
+  if (!walletAddress || !isValidWallet(walletAddress)) {
+    return successResponse(res, []);
+  }
   const history = await taskService.getUserTaskHistory(walletAddress);
   return successResponse(res, history.map(normalizeUserTask));
 });

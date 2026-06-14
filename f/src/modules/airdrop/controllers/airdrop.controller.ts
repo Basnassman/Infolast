@@ -12,7 +12,18 @@ import { ClaimStatusResult, AirdropStatsResult, EligibilityResponse } from "@mod
 // ─── Eligibility ────────────────────────────────────────────────────────────
 export const getEligibilityController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
+    const walletAddress = (req.query.walletAddress as string) || '';
+    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      successResponse(res, normalizeParticipant({
+        walletAddress: walletAddress.toLowerCase(),
+        eligible: false,
+        amountWei: '0',
+        points: 0,
+        proof: [],
+        claims: [],
+      }));
+      return;
+    }
     const eligibility: ClaimStatusResult = await getClaimStatus(walletAddress);
     
     const result: EligibilityResponse = {
@@ -40,7 +51,17 @@ export const claimAirdropController = asyncHandler(
 // ─── Claim Status ───────────────────────────────────────────────────────────
 export const getClaimStatusController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const walletAddress = String(req.query.walletAddress || req.params.walletAddress);
+    const walletAddress = (req.query.walletAddress as string) || '';
+    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      successResponse(res, normalizeClaim({
+        eligible: false,
+        amountWei: '0',
+        points: 0,
+        proof: [],
+        claims: [],
+      }));
+      return;
+    }
     const status: ClaimStatusResult = await getClaimStatus(walletAddress);
     successResponse(res, normalizeClaim(status));
   }
@@ -49,7 +70,11 @@ export const getClaimStatusController = asyncHandler(
 // ─── Merkle Proof ───────────────────────────────────────────────────────────
 export const getMerkleProofController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const walletAddress = String(req.query.walletAddress);
+    const walletAddress = (req.query.walletAddress as string) || '';
+    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      successResponse(res, null);
+      return;
+    }
     const proof = await getWalletProof(walletAddress);
     successResponse(res, normalizeMerkleProof(proof));
   }
