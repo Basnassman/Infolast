@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { wallet, provider, config } from "@core/blockchain/provider";
 import VestingABI from "@core/abis/Vesting";
+import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
 // Read-only contract
 export const vestingContractRead = new ethers.Contract(
@@ -71,21 +72,21 @@ export const getVestingConstants = async () => {
 
 // Claim (user calls this from frontend)
 export const claimVesting = async () => {
-  if (!vestingContractWrite) throw new Error("Wallet not configured");
+  if (!vestingContractWrite) throw new ConfigurationError("Wallet not configured");
   const tx = await vestingContractWrite.claim();
   return tx.hash;
 };
 
 // Allocate (admin only)
 export const allocateVesting = async (user: string, amount: string) => {
-  if (!vestingContractWrite) throw new Error("Admin wallet not configured");
+  if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await vestingContractWrite.allocate(user, amount);
   return tx.hash;
 };
 
 // Deposit (admin only)
 export const depositTokens = async (amount: string) => {
-  if (!vestingContractWrite) throw new Error("Admin wallet not configured");
+  if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await vestingContractWrite.deposit(amount);
   return tx.hash;
 };

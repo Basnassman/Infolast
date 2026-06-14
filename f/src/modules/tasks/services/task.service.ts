@@ -9,6 +9,7 @@ import { Task, TaskStatus } from "@prisma/client";
 import { TaskNotFoundError } from "../errors/task-not-found.error";
 import { TaskInactiveError } from "../errors/task-inactive.error";
 import { TaskAlreadyCompletedError } from "../errors/task-already-completed.error";
+import { logger } from "@core/logger/logger";
 
 export interface SubmitTaskPayload {
   walletAddress: string;
@@ -86,7 +87,9 @@ export const taskService = {
       status: initialStatus,
     });
 
-    analyzeFraudPatterns(user.id).catch(console.error);
+    analyzeFraudPatterns(user.id).catch((err) =>
+      logger.error({ err, userId: user.id }, "[Task] Fraud analysis failed")
+    );
 
     return {
       id: userTask.id,

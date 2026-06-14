@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { wallet, provider, config } from "@core/blockchain/provider";
 import TokenABI from "@core/abis/Token";
+import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
 // Read-only contract
 export const tokenContractRead = new ethers.Contract(
@@ -46,14 +47,14 @@ export const getAllowance = async (owner: string, spender: string): Promise<stri
 
 // Transfer (admin only)
 export const transferTokens = async (to: string, amount: string) => {
-  if (!tokenContractWrite) throw new Error("Admin wallet not configured");
+  if (!tokenContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await tokenContractWrite.transfer(to, amount);
   return tx.hash;
 };
 
 // Approve (admin only)
 export const approveTokens = async (spender: string, amount: string) => {
-  if (!tokenContractWrite) throw new Error("Admin wallet not configured");
+  if (!tokenContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await tokenContractWrite.approve(spender, amount);
   return tx.hash;
 };

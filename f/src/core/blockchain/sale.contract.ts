@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { wallet, provider, config } from "@core/blockchain/provider";
 import SaleABI from "@core/abis/Sale";
+import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
 // Read-only contract
 export const saleContractRead = new ethers.Contract(
@@ -69,7 +70,7 @@ export const getSaleQuote = async (currency: string, amount: string) => {
 
 // Buy tokens (user calls this from frontend)
 export const buyTokens = async (currency: string, amount: string, value?: string) => {
-  if (!saleContractWrite) throw new Error("Wallet not configured");
+  if (!saleContractWrite) throw new ConfigurationError("Wallet not configured");
   
   const tx = await saleContractWrite.buy(currency, amount, {
     value: value || "0",

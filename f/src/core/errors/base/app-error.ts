@@ -1,16 +1,14 @@
-import { AppError as LegacyAppError }
-  from "@core/api/exceptions/app.error";
+export class AppError extends Error {
+  public code: string;
+  public statusCode: number;
 
-export class AppError extends LegacyAppError {
-  constructor(
-    code: string,
-    message: string,
-    statusCode = 400
-  ) {
-    super(
-      code,
-      message,
-      statusCode
-    );
+  constructor(code: string, message: string, statusCode = 400) {
+    super(message);
+    this.code = code;
+    this.statusCode = statusCode;
+    this.name = this.constructor.name;
+    Error.captureStackTrace?.(this, this.constructor);
   }
 }
+
+export default AppError;

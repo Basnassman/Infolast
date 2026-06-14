@@ -1,5 +1,6 @@
 import { CronJob } from "cron";
 import { cronRebuild } from "../../modules/airdrop/workers/rebuild.worker";
+import { logger } from "@core/logger/logger";
 
 /**
  * 🕐 Cron Scheduler
@@ -19,28 +20,28 @@ let merkleCronJob: CronJob | null = null;
 export const initCronJobs = () => {
   // Prevent multiple instances in cluster mode
   if (process.env.NODE_APP_INSTANCE && process.env.NODE_APP_INSTANCE !== "0") {
-    console.log("[Cron] Skipping cron jobs on worker instance");
+    logger.info("[Cron] Skipping cron jobs on worker instance");
     return;
   }
 
-  console.log("[Cron] Initializing scheduled jobs...");
+  logger.info("[Cron] Initializing scheduled jobs...");
 
   // Merkle rebuild: Every hour
   // Change to '0 */6 * * *' for every 6 hours in production
   merkleCronJob = new CronJob(
     "0 0 * * * *", // Every hour at minute 0
     async () => {
-      console.log("[Cron] ⏰ Hourly Merkle rebuild triggered");
+      logger.info("[Cron] Hourly Merkle rebuild triggered");
       try {
         const result = await cronRebuild();
         if ("skipped" in result) {
           console.log("[Cron] ⏭️ No changes detected");
         } 
           if (!result.success) {
-          console.error(`[Cron] ❌ Rebuild error: ${result.error}`);
+          logger.error({ error: result.error }, "[Cron] Rebuild error");
       }
       } catch (error: any) {
-        console.error("[Cron] ❌ Rebuild failed:", error.message);
+        logger.error({ err: error }, "[Cron] Rebuild failed");
       }
     },
     null, // onComplete
@@ -48,7 +49,7 @@ export const initCronJobs = () => {
     "UTC" // timezone
   );
 
-  console.log("[Cron] ✅ Merkle rebuild scheduled every hour");
+  logger.info("[Cron] Merkle rebuild scheduled every hour");
 };
 
 /**
@@ -57,7 +58,7 @@ export const initCronJobs = () => {
 export const stopCronJobs = () => {
   if (merkleCronJob) {
     merkleCronJob.stop();
-    console.log("[Cron] 🛑 Jobs stopped");
+    logger.info("[Cron] Jobs stopped");
   }
 };
 

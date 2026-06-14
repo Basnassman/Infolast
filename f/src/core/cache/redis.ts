@@ -1,6 +1,7 @@
 import IORedis from "ioredis";
 
 import { env } from "../config/env";
+import { logger } from "@core/logger/logger";
 
 export const redis =
   new IORedis(
@@ -14,18 +15,13 @@ export const redis =
 redis.on(
   "connect",
   () => {
-    console.log(
-      "✅ Redis connected"
-    );
+    logger.info("Redis connected");
   }
 );
 
 redis.on(
   "error",
   (error) => {
-    console.error(
-      "❌ Redis error",
-      error
-    );
+    logger.error({ err: error }, "Redis error");
   }
 );

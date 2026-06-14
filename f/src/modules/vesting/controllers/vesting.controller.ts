@@ -4,6 +4,8 @@ import {
   getUserVestingStatus,
   getUserVestingClaims,
 } from "@modules/vesting/services/vesting.service";
+import { asyncHandler } from "@core/utils/async-handler";
+import { ValidationError } from "@core/api/exceptions/validation.error";
 
 /**
  * POST /api/vesting/claim
@@ -15,51 +17,36 @@ import {
  *   amount: "25000000000000000000"  // wei
  * }
  */
-export const claimVesting = async (req: Request, res: Response) => {
-  try {
-    const { wallet, txHash, amount } = req.body;
+export const claimVesting = asyncHandler(async (req: Request, res: Response) => {
+  const { wallet, txHash, amount } = req.body;
 
-    if (!wallet || !txHash || !amount) {
-      return res.status(400).json({
-        success: false,
-        error: "wallet, txHash, and amount are required"
-      });
-    }
-
-    const result = await recordVestingClaim(wallet, txHash, amount);
-    res.json({ success: true, data: result });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  if (!wallet || !txHash || !amount) {
+    throw new ValidationError("wallet, txHash, and amount are required");
   }
-};
+
+  const result = await recordVestingClaim(wallet, txHash, amount);
+  res.json({ success: true, data: result });
+});
 
 /**
  * GET /api/vesting/status/:wallet
  * جلب حالة الاستحقاق للمستخدم
  */
-export const vestingStatus = async (req: Request, res: Response) => {
-  try {
-    const wallet = req.params.wallet as string;
-    const status = await getUserVestingStatus(wallet);
-    res.json({ success: true, data: status });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+export const vestingStatus = asyncHandler(async (req: Request, res: Response) => {
+  const wallet = req.params.wallet as string;
+  const status = await getUserVestingStatus(wallet);
+  res.json({ success: true, data: status });
+});
 
 /**
  * GET /api/vesting/claims/:wallet
  * جلب سجل سحوبات المستخدم
  */
-export const vestingClaims = async (req: Request, res: Response) => {
-  try {
-    const wallet = req.params.wallet as string;
-    const claims = await getUserVestingClaims(wallet);
-    res.json({ success: true, data: claims });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+export const vestingClaims = asyncHandler(async (req: Request, res: Response) => {
+  const wallet = req.params.wallet as string;
+  const claims = await getUserVestingClaims(wallet);
+  res.json({ success: true, data: claims });
+});
 
 export const vestingController = {
   claimVesting,

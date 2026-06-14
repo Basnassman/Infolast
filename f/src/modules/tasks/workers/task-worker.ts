@@ -9,7 +9,8 @@ import { TaskSubmissionLimitReachedError } from "@modules/tasks/errors/task-subm
 import { TaskNotUnderReviewError } from "@modules/tasks/errors/task-not-under-review.error";
 import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
 import { TaskNotFoundError } from "@modules/tasks/errors/task-not-found.error";
-import{UserTaskNotFoundError} from "@modules/tasks/errors/user-task-not-found.error";
+import { UserTaskNotFoundError } from "@modules/user/errors/user-task-not-found.error";
+import { logger } from "@core/logger/logger";
 
 export interface TaskExecutionResult {
   status: TaskStatus;
@@ -31,10 +32,10 @@ export const processTaskExecution = async (
   });
 
   if (!user) {
-  throw new UserNotFoundError(userId);
+    throw new UserNotFoundError(userId);
   }
   if (user.status !== UserStatus.ACTIVE) {
-  throw new UserInactiveError(userId);
+    throw new UserInactiveError(userId);
   }
 
   // ✅ UserTask الصحيح
@@ -54,10 +55,10 @@ export const processTaskExecution = async (
 
   const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task) {
-  throw new TaskNotFoundError(taskId);
+    throw new TaskNotFoundError(taskId);
   }
   if (!task.isActive) {
-  throw new TaskInactiveError(taskId);
+    throw new TaskInactiveError(taskId);
   }
 
   const submissionCount = await prisma.userTask.count({ where: { taskId } });
@@ -118,7 +119,9 @@ export const processTaskExecution = async (
     }
   }
 
-  fraudDetector.analyzeFraudPatterns(userId).catch(console.error);
+  fraudDetector.analyzeFraudPatterns(userId).catch((err) =>
+    logger.error({ err, userId }, "[Task] Fraud analysis failed")
+  );
 
   return {
     status: finalStatus,
@@ -138,7 +141,7 @@ export const processReviewApproval = async (
   });
 
   if (!userTask) {
-  throw new UserTaskNotFoundError(userTaskId);
+    throw new UserTaskNotFoundError(userTaskId);
   }
   if (userTask.status !== TaskStatus.REVIEW) throw new TaskNotUnderReviewError(userTaskId);
 

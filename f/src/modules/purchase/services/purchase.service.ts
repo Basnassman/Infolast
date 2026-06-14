@@ -1,6 +1,8 @@
 import { prisma } from "@core/db/prisma";
 import { UserCategory } from "@prisma/client";
 import { syncUserCategory } from "@modules/airdrop/services/airdrop.service";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
+import { AlreadyClaimedError } from "@core/errors/domain/airdrop/already-claimed.error";
 
 const DECIMALS = 18;
 
@@ -90,8 +92,8 @@ export const recordPurchaseClaim = async (wallet: string, txHash: string, amount
       where: { wallet: normalizedWallet }
     });
 
-    if (!user) throw new Error("User not found");
-    if (user.hasClaimedTokens) throw new Error("Tokens already claimed");
+    if (!user) throw new UserNotFoundError(normalizedWallet);
+    if (user.hasClaimedTokens) throw new AlreadyClaimedError();
 
     // إنشاء سجل Vesting Claim
     if (amountWei) {

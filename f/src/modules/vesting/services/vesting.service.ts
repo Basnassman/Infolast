@@ -1,6 +1,7 @@
 import { prisma } from "@core/db/prisma";
 import { getUserVesting, getVestingConstants } from "@core/blockchain/vesting.contract";
 import { calculateUnlocked, calculateVested, getVestingProgress, getNextUnlock } from "@modules/vesting/domain/vesting.domain";
+import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
 
 const DECIMALS = 18;
 
@@ -33,7 +34,7 @@ export const recordVestingClaim = async (
       where: { wallet: normalizedWallet }
     });
 
-    if (!user) throw new Error("User not found");
+    if (!user) throw new UserNotFoundError(normalizedWallet);
 
     // تحويل wei إلى FOR
     const amountFor = (BigInt(amountWei) / BigInt(10 ** DECIMALS)).toString();

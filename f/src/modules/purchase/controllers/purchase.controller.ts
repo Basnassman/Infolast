@@ -4,6 +4,9 @@ import {
   recordPurchaseClaim,
   getUserFullStatus 
 } from "@modules/purchase/services/purchase.service";
+import { asyncHandler } from "@core/utils/async-handler";
+import { ValidationError } from "@core/api/exceptions/validation.error";
+import { NotFoundError } from "@core/api/exceptions/not-found.error";
 
 /**
  * POST /api/purchase/webhook
@@ -18,31 +21,24 @@ import {
  *   txHash: "0x..."
  * }
  */
-export const purchaseWebhook = async (req: Request, res: Response) => {
-  try {
-    const { buyer, tokenAmount, tokenAmountWei, price, currency, txHash } = req.body;
-    
-    if (!buyer || !tokenAmount || !txHash) {
-      return res.status(400).json({
-        success: false,
-        error: "buyer, tokenAmount, and txHash are required"
-      });
-    }
-
-    const result = await recordPurchase({
-      buyer,
-      tokenAmount,
-      tokenAmountWei,
-      price,
-      currency,
-      txHash
-    });
-    
-    res.json({ success: true, data: result });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+export const purchaseWebhook = asyncHandler(async (req: Request, res: Response) => {
+  const { buyer, tokenAmount, tokenAmountWei, price, currency, txHash } = req.body;
+  
+  if (!buyer || !tokenAmount || !txHash) {
+    throw new ValidationError("buyer, tokenAmount, and txHash are required");
   }
-};
+
+  const result = await recordPurchase({
+    buyer,
+    tokenAmount,
+    tokenAmountWei,
+    price,
+    currency,
+    txHash
+  });
+  
+  res.json({ success: true, data: result });
+});
 
 /**
  * POST /api/purchase/claim
@@ -54,42 +50,31 @@ export const purchaseWebhook = async (req: Request, res: Response) => {
  *   amount: "25000000000000000000"  // ← wei (اختياري)
  * }
  */
-export const claimPurchaseTokens = async (req: Request, res: Response) => {
-  try {
-    const { wallet, txHash, amount } = req.body;
-    
-    if (!wallet || !txHash) {
-      return res.status(400).json({
-        success: false,
-        error: "wallet and txHash are required"
-      });
-    }
-
-    const result = await recordPurchaseClaim(wallet, txHash, amount);
-    res.json({ success: true, data: result });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+export const claimPurchaseTokens = asyncHandler(async (req: Request, res: Response) => {
+  const { wallet, txHash, amount } = req.body;
+  
+  if (!wallet || !txHash) {
+    throw new ValidationError("wallet and txHash are required");
   }
-};
+
+  const result = await recordPurchaseClaim(wallet, txHash, amount);
+  res.json({ success: true, data: result });
+});
 
 /**
  * GET /api/purchase/status/:wallet
  * جلب حالة المستخدم الكاملة
  */
-export const userStatus = async (req: Request, res: Response) => {
-  try {
-    const wallet = req.params.wallet as string;
-    const status = await getUserFullStatus(wallet);
-    
-    if (!status) {
-      return res.status(404).json({ success: false, error: "User not found" });
-    }
-    
-    res.json({ success: true, data: status });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+export const userStatus = asyncHandler(async (req: Request, res: Response) => {
+  const wallet = req.params.wallet as string;
+  const status = await getUserFullStatus(wallet);
+  
+  if (!status) {
+    throw new NotFoundError("User not found");
   }
-};
+  
+  res.json({ success: true, data: status });
+});
 
 export const purchaseController = {
   purchaseWebhook,

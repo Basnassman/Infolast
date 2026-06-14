@@ -12,6 +12,8 @@ import {
   normalizeError,
 } from "@core/errors/mappers/error-mapper";
 
+import { logger } from "@core/logger/logger";
+
 const isProduction =
   process.env.NODE_ENV === "production";
 
@@ -25,24 +27,15 @@ export const globalErrorMiddleware = (
     normalizeError(error);
 
   if (!isProduction) {
-    console.error(
-      "[GlobalErrorMiddleware]",
+    logger.error(
       {
-        name:
-          normalizedError.name,
-
-        code:
-          normalizedError.code,
-
-        message:
-          normalizedError.message,
-
-        statusCode:
-          normalizedError.statusCode,
-
-        stack:
-          normalizedError.stack,
-      }
+        name: normalizedError.name,
+        code: normalizedError.code,
+        message: normalizedError.message,
+        statusCode: normalizedError.statusCode,
+        stack: normalizedError.stack,
+      },
+      "[GlobalErrorMiddleware]"
     );
   }
 

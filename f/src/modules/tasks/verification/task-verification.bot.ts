@@ -1,5 +1,6 @@
 import { Task, TaskPlatform } from "@prisma/client";
 import { env } from "@core/config/env";
+import { logger } from "@core/logger/logger";
 
 const TWITTER_BEARER_TOKEN = env.verification.twitterBearerToken;
 const TELEGRAM_BOT_TOKEN   = env.telegram.botToken;
@@ -29,20 +30,20 @@ export const verifyTaskExecution = async (task: Task, proof?: any): Promise<bool
 
 const verifyXTask = async (task: Task, proof: any): Promise<boolean> => {
   if (!TWITTER_BEARER_TOKEN) {
-    console.warn("[VERIFY] TWITTER_BEARER_TOKEN not set");
+    logger.warn("[VERIFY] TWITTER_BEARER_TOKEN not set");
     return false;
   }
 
   const username = proof?.username;
   
   if (!username) {
-    console.log("[VERIFY] X: no username provided");
+    logger.info("[VERIFY] X: no username provided");
     return false;
   }
 
   // ✅ FIX: تحقق من وجود URL
   if (!task.url) {
-    console.log("[VERIFY] X: task has no URL");
+    logger.info("[VERIFY] X: task has no URL");
     return false;
   }
 
@@ -55,7 +56,7 @@ const verifyXTask = async (task: Task, proof: any): Promise<boolean> => {
     );
 
     if (!userRes.ok) {
-      console.log("[VERIFY] X: user not found");
+      logger.info("[VERIFY] X: user not found");
       return false;
     }
 
@@ -68,7 +69,7 @@ const verifyXTask = async (task: Task, proof: any): Promise<boolean> => {
       const tweetId = extractTweetId(task.url); // ✅ الآن task.url مضمون string
 
       if (!tweetId) {
-        console.log("[VERIFY] X: invalid tweet URL");
+        logger.info("[VERIFY] X: invalid tweet URL");
         return false;
       }
 
@@ -89,11 +90,11 @@ const verifyXTask = async (task: Task, proof: any): Promise<boolean> => {
       return isRetweeted || false;
     }
 
-    console.log("[VERIFY] X: Follow verification needs paid API");
+    logger.info("[VERIFY] X: Follow verification needs paid API");
     return false;
 
   } catch (err) {
-    console.error("[VERIFY] X error:", err);
+    logger.error({ err }, "[VERIFY] X error");
     return false;
   }
 };
@@ -102,14 +103,14 @@ const verifyXTask = async (task: Task, proof: any): Promise<boolean> => {
 
 const verifyTelegramTask = async (task: Task, proof: any): Promise<boolean> => {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
-    console.warn("[VERIFY] TELEGRAM_BOT_TOKEN or TELEGRAM_GROUP_ID not set");
+    logger.warn("[VERIFY] TELEGRAM_BOT_TOKEN or TELEGRAM_GROUP_ID not set");
     return false;
   }
 
   const telegramId = proof?.telegramId;
 
   if (!telegramId) {
-    console.log("[VERIFY] Telegram: no telegramId provided");
+    logger.info("[VERIFY] Telegram: no telegramId provided");
     return false;
   }
 
@@ -122,19 +123,19 @@ const verifyTelegramTask = async (task: Task, proof: any): Promise<boolean> => {
     const data = await res.json();
 
     if (!data.ok) {
-      console.log("[VERIFY] Telegram: API error", data.description);
+      logger.info({ description: data.description }, "[VERIFY] Telegram: API error");
       return false;
     }
 
     const status = data.result?.status;
     const isMember = ['member', 'administrator', 'creator'].includes(status);
 
-    console.log(`[VERIFY] Telegram: user status = ${status}, isMember = ${isMember}`);
+    logger.info({ status, isMember }, "[VERIFY] Telegram: user status");
     
     return isMember;
 
   } catch (err) {
-    console.error("[VERIFY] Telegram error:", err);
+    logger.error({ err }, "[VERIFY] Telegram error");
     return false;
   }
 };
@@ -143,22 +144,22 @@ const verifyTelegramTask = async (task: Task, proof: any): Promise<boolean> => {
 
 const verifyYouTubeTask = async (task: Task, proof: any): Promise<boolean> => {
   if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) {
-    console.warn("[VERIFY] YOUTUBE_API_KEY or YOUTUBE_CHANNEL_ID not set");
+    logger.warn("[VERIFY] YOUTUBE_API_KEY or YOUTUBE_CHANNEL_ID not set");
     return false;
   }
 
   // ✅ FIX: تحقق من وجود URL
   if (!task.url) {
-    console.log("[VERIFY] YouTube: task has no URL");
+    logger.info("[VERIFY] YouTube: task has no URL");
     return false;
   }
 
-  console.log("[VERIFY] YouTube: needs OAuth 2.0 consent");
+  logger.info("[VERIFY] YouTube: needs OAuth 2.0 consent");
   
   const videoId = extractVideoId(task.url); // ✅ الآن task.url مضمون string
 
   if (!videoId) {
-    console.log("[VERIFY] YouTube: invalid video URL");
+    logger.info("[VERIFY] YouTube: invalid video URL");
     return false;
   }
 
@@ -175,7 +176,7 @@ const verifyYouTubeTask = async (task: Task, proof: any): Promise<boolean> => {
     return false; // TODO: قارن بـ channelId للمستخدم
 
   } catch (err) {
-    console.error("[VERIFY] YouTube error:", err);
+    logger.error({ err }, "[VERIFY] YouTube error");
     return false;
   }
 };
@@ -184,11 +185,11 @@ const verifyYouTubeTask = async (task: Task, proof: any): Promise<boolean> => {
 
 const verifyArticleTask = async (task: Task, proof: any): Promise<boolean> => {
   if (proof?.timeSpent && proof.timeSpent >= 30) {
-    console.log(`[VERIFY] Article: timeSpent = ${proof.timeSpent}s`);
+    logger.info({ timeSpent: proof.timeSpent }, "[VERIFY] Article: timeSpent");
     return true;
   }
 
-  console.log("[VERIFY] Article: needs manual review or time tracking");
+  logger.info("[VERIFY] Article: needs manual review or time tracking");
   return false;
 };
 

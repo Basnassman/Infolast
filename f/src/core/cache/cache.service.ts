@@ -1,5 +1,5 @@
 import { redis } from "./redis";
-import { logger } from "@core/logger/logger"; // أو console.error
+import { logger } from "@core/logger/logger";
 
 import { CacheWriteError } from "@core/errors/infrastructure/cache/cache-write.error";
 import { CacheDeleteError } from "@core/errors/infrastructure/cache/cache-delete.error";
@@ -17,7 +17,7 @@ export const cacheService = {
       }
     } catch (error) {
       // Redis غير متاح - نتجاهل الـ cache ونكمل من الـ DB
-      console.error("[Cache] get failed, bypassing cache:", key, error);
+      logger.error({ key, err: error }, "[Cache] get failed, bypassing cache");
       return null;
     }
   },
@@ -32,7 +32,7 @@ export const cacheService = {
       }
     } catch (error) {
       // فشل الكتابة في الـ cache ليس كارثياً
-      console.error("[Cache] set failed:", key, error);
+      logger.error({ key, err: error }, "[Cache] set failed");
       // لا نرمي خطأ - نكمل بدون cache
     }
   },

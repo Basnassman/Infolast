@@ -4,6 +4,7 @@ import {
   normalizeAddress,
   verifySignature,
 } from "../auth/signature.service";
+import { AuthenticationError } from "@core/errors/domain/auth/authentication.error";
 
 export type AuthWallet =
   {
@@ -45,7 +46,7 @@ export const extractWalletAuth =
     if (
       !walletAddress
     ) {
-      throw new Error(
+      throw new AuthenticationError(
         "Wallet address is required"
       );
     }
@@ -53,13 +54,13 @@ export const extractWalletAuth =
     if (
       !signature
     ) {
-      throw new Error(
+      throw new AuthenticationError(
         "Signature is required"
       );
     }
 
     if (!message) {
-      throw new Error(
+      throw new AuthenticationError(
         "Message is required"
       );
     }
@@ -93,7 +94,7 @@ export const authenticateWallet =
       );
 
     if (!valid) {
-      throw new Error(
+      throw new AuthenticationError(
         "Invalid signature"
       );
     }

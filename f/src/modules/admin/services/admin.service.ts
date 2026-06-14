@@ -5,7 +5,8 @@ import { userTaskRepository } from "@modules/user/repositories/user-task.reposit
 import { distributeReward } from "@modules/tasks/rewards/reward.service";
 import { taskEventEmitter } from "@modules/tasks/events/task.events";
 import { recalculateAllocations } from "@modules/airdrop/services/allocation.service";
-import{UserTaskNotFoundError} from "@modules/tasks/errors/user-task-not-found.error";
+import { TaskAlreadyApprovedError } from "@modules/tasks/errors/task-already-approved.error";
+import { UserTaskNotFoundError } from "@modules/user/errors/user-task-not-found.error";
 
 // ─── Merkle Jobs ────────────────────────────────────────────────────────────
 
@@ -51,10 +52,11 @@ export const approveTask = async (userTaskId: string, reviewedBy: string) => {
   // ✅ استخدم userTaskRepository.findById (ي include task)
   const userTask = await userTaskRepository.findById(userTaskId);
   
-  if (!userTask) {throw new UserTaskNotFoundError(userTaskId);
+  if (!userTask) {
+    throw new UserTaskNotFoundError(userTaskId);
   }
   if (userTask.status === TaskStatus.VERIFIED) {
-    throw new Error("Task already approved");
+    throw new TaskAlreadyApprovedError(userTaskId);
   }
 
   const updated = await userTaskRepository.update(userTaskId, {
@@ -96,7 +98,8 @@ export const approveTask = async (userTaskId: string, reviewedBy: string) => {
 
 export const rejectTask = async (userTaskId: string, reviewedBy: string) => {
   const userTask = await userTaskRepository.findById(userTaskId);
-  if (!userTask) { throw new UserTaskNotFoundError(userTaskId);
+  if (!userTask) {
+    throw new UserTaskNotFoundError(userTaskId);
   }
   const updated = await userTaskRepository.update(userTaskId, {
     status: TaskStatus.REJECTED,
