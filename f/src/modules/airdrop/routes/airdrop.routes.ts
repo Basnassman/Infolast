@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticateWallet } from "@core/middleware/auth.middleware";
 import { walletRateLimit } from "@core/middleware/rate-limit.middleware";
-import { validateRequest } from "@core/middleware/validate-request.middleware";
+import { validateRequest, validateQuery } from "@core/middleware/validate-request.middleware";
 import { asyncHandler } from "@core/utils/async-handler";
 import { idempotencyMiddleware } from "@core/middleware/idempotency.middleware";
 
@@ -22,21 +22,22 @@ const router = Router();
 router.get(
   "/eligibility",
   walletRateLimit,
-  validateRequest(eligibilitySchema),
+  validateQuery(eligibilitySchema),
   checkEligibility
 );
 
 router.get(
   "/proof",
   walletRateLimit,
-  validateRequest(proofRequestSchema),
+  validateQuery(proofRequestSchema),
   getProof
 );
 
 router.get(
   "/claim-status",
   walletRateLimit,
-  getClaimStatusController  // ✅ تعديل
+  validateQuery(eligibilitySchema),
+  getClaimStatusController
 );
 
 router.post(

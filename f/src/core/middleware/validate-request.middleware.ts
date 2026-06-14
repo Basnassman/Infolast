@@ -13,6 +13,26 @@ import {
   ApiError,
 } from "../../core/contracts-api/error.contract";
 
+const sendValidationError = (
+  res: Response,
+  message: string
+) => {
+  const response: ApiError = {
+    success: false,
+
+    error: {
+      code: "VALIDATION_ERROR",
+
+      message,
+    },
+  };
+
+  return res.status(400).json(response);
+};
+
+/**
+ * Validate req.body (POST/PUT/PATCH)
+ */
 export const validateRequest =
   <T>(
     schema: ZodSchema<T>
@@ -28,32 +48,53 @@ export const validateRequest =
         next();
       } catch (error) {
         if (error instanceof z.ZodError) {
-          const response: ApiError = {
-            success: false,
-
-            error: {
-              code: "VALIDATION_ERROR",
-
-              message: error.issues
-                .map((issue: any) => `${issue.path.join(".")}: ${issue.message}`)
-                .join(", "),
-            },
-          };
-
-          return res.status(400).json(response);
+          return sendValidationError(
+            res,
+            error.issues
+              .map((issue: any) => `${issue.path.join(".")}: ${issue.message}`)
+              .join(", ")
+          );
         }
 
-        const response: ApiError = {
-          success: false,
+        return sendValidationError(
+          res,
+          "Invalid request payload"
+        );
+      }
+    };
+  };
 
-          error: {
-            code: "INVALID_REQUEST",
+/**
+ * Validate req.query (GET routes)
+ */
+export const validateQuery =
+  <T>(
+    schema: ZodSchema<T>
+  ) => {
+    return (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => {
+      try {
+        const parsed = schema.parse(req.query);
+        (req as any).validatedQuery = parsed;
 
-            message: "Invalid request payload",
-          },
-        };
+        next();
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return sendValidationError(
+            res,
+            error.issues
+              .map((issue: any) => `${issue.path.join(".")}: ${issue.message}`)
+              .join(", ")
+          );
+        }
 
-        return res.status(400).json(response);
+        return sendValidationError(
+          res,
+          "Invalid query parameters"
+        );
       }
     };
   };
