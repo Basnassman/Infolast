@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CURRENT_CONTRACTS } from '@/config/contracts';
 import { AIRDROP_ABI } from '@/config/abis';
 
-const API_BASE_URL = 'https://infov-aomq.onrender.com/api/v1';
+const API_BASE_URL = 'https://infolast.onrender.com/api/v1';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
