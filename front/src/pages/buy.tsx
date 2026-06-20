@@ -7,7 +7,7 @@ import { CURRENT_CONTRACTS } from '@/config/contracts';
 import { SALE_ABI, TOKEN_ABI } from '@/config/abis';
 
 // ─── Backend API Configuration ────────────────────────────────────────────────
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://info-hyqj.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://infolast.onrender.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18): string {
