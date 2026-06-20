@@ -441,11 +441,17 @@ model Purchase {
 
   tokenPriceUsd Decimal? @db.Decimal(36, 18)
 
+  usdValue Decimal? @db.Decimal(36, 18)
+
   chainId Int
 
   txHash String @unique
 
   blockNumber BigInt?
+
+  blockTimestamp DateTime?
+
+  blockHash String?
 
   purchaseDirty Boolean @default(false)
 
@@ -456,6 +462,9 @@ model Purchase {
   @@index([userId])
   @@index([paymentAsset])
   @@index([source])
+  @@index([blockNumber])
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 // =====================================================
@@ -478,6 +487,20 @@ model DistributionSnapshot {
   createdAt DateTime @default(now())
 
   @@unique([distributionType, snapshotVersion])
+}
+
+// =====================================================
+// SYNC STATE
+// =====================================================
+
+model SyncState {
+  id String @id @default(cuid())
+
+  key String @unique
+
+  value String
+
+  updatedAt DateTime @updatedAt
 }
 
 // =====================================================
