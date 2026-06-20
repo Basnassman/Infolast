@@ -9,10 +9,11 @@ import { syncPurchaseEvents } from "@modules/purchase/sync/purchase.sync";
 
 const router = Router();
 
-// ─── Auth Middleware ────────────────────────────────────────────────────────
-router.use(rateLimit({ windowMs: 60_000, maxRequests: 30 }), authenticate);
+// ─── Rate Limit (applies to all routes) ────────────────────────────────────
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 30 }));
 
 // ─── Frontend: Record Purchase After Blockchain Confirmation ─────────────────
+// No authenticate middleware needed — backend verifies tx on-chain via processFrontendPurchase
 router.post(
   "/record",
   asyncHandler(async (req, res) => {
@@ -37,6 +38,7 @@ router.post(
 // ─── Admin: Purchase Stats ──────────────────────────────────────────────────
 router.get(
   "/stats",
+  authenticate,
   requireAdmin,
   asyncHandler(async (_req, res) => {
     const stats = await purchaseService.getPurchaseStats();
@@ -47,6 +49,7 @@ router.get(
 // ─── Admin: Recent Purchases ────────────────────────────────────────────────
 router.get(
   "/recent",
+  authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const rawLimit = req.query.limit;
@@ -59,6 +62,7 @@ router.get(
 // ─── Admin: Manual Sync Trigger ─────────────────────────────────────────────
 router.post(
   "/sync",
+  authenticate,
   requireAdmin,
   asyncHandler(async (_req, res) => {
     const result = await syncPurchaseEvents();
@@ -69,6 +73,7 @@ router.post(
 // ─── Admin: Buyer Profile ───────────────────────────────────────────────────
 router.get(
   "/buyer/:walletAddress",
+  authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const walletAddress = String(req.params.walletAddress);
@@ -80,6 +85,7 @@ router.get(
 // ─── Admin: User Purchases ──────────────────────────────────────────────────
 router.get(
   "/user/:userId",
+  authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const userId = String(req.params.userId);

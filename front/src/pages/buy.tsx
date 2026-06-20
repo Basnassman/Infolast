@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits, type Hash } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
 import Calculator, { type Currency } from '@/components/Calculator';
@@ -72,7 +72,6 @@ export default function BuyPage() {
   const [success, setSuccess] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [selectedCurrencyAddress, setSelectedCurrencyAddress] = useState<string>('');
-  const { signMessageAsync } = useSignMessage();
   const ETH_SENTINEL = '0x0000000000000000000000000000000000000000';
   const isEthCurrency = !selectedCurrencyAddress || selectedCurrencyAddress === ETH_SENTINEL;
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -207,17 +206,11 @@ export default function BuyPage() {
     setSyncError(null);
     
     try {
-      // ── Wallet Signature for Backend Auth ─────────────────────────────
-      const authMessage = `Record purchase ${txHash} for ${address}`;
-      const signature = await signMessageAsync({ message: authMessage });
-
       const response = await fetch(`${API_BASE_URL}/api/v1/purchase/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-wallet-address': address,
-          'x-signature': signature,
-          'x-message': authMessage,
         },
         body: JSON.stringify({
           walletAddress: address,
@@ -245,7 +238,7 @@ export default function BuyPage() {
       console.error('Backend sync error:', err);
       
       if (err?.message?.includes('rejected') || err?.message?.includes('denied')) {
-        setSyncError('Authentication was cancelled. Your purchase succeeded on-chain but was not recorded. Please contact support.');
+        setSyncError('Sync was cancelled. Your purchase succeeded on-chain but was not recorded. Please contact support.');
       } else {
         setSyncError('Purchase successful but failed to sync with database. Please contact support.');
       }
