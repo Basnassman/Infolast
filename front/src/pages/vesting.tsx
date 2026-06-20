@@ -10,7 +10,7 @@ import { VESTING_ABI } from '@/config/abis';
 // TODO: ضع هنا عنوان الـ Backend API الخاص بك
 // مثال: const API_BASE_URL = 'https://api.yourproject.com';
 // أو: const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_BASE_URL = 'https://info-hyqj.onrender.com'; // ← عدّل هذا
+const API_BASE_URL = 'https://infolast.onrender.com'; // ← عدّل هذا
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18, fractionDigits = 2): string {
