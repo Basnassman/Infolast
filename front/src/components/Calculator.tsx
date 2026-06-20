@@ -21,6 +21,7 @@ interface CalculatorProps {
   userBalance?: bigint;
   userPurchased?: bigint;
   walletCap?: bigint;
+  onCurrencyChange?: (currencyAddress: string) => void;
 }
 
 interface CurrencyInfo {
@@ -63,6 +64,7 @@ const Calculator: FC<CalculatorProps> = ({
   userBalance,
   userPurchased,
   walletCap,
+  onCurrencyChange,
 }) => {
   const { address } = useAccount();
   const [selectedCurrencyAddress, setSelectedCurrencyAddress] = useState<string>('');
@@ -105,11 +107,12 @@ const Calculator: FC<CalculatorProps> = ({
   // اختيار افتراضي عند تحميل القائمة
   useEffect(() => {
     if (!selectedCurrencyAddress && currencies.length > 0) {
-      // نفضل ETH إذا كانت موجودة
       const eth = currencies.find(c => c.isNative);
-      setSelectedCurrencyAddress(eth ? eth.address : currencies[0].address);
+      const addr = eth ? eth.address : currencies[0].address;
+      setSelectedCurrencyAddress(addr);
+      onCurrencyChange?.(addr);
     }
-  }, [currencies, selectedCurrencyAddress]);
+  }, [currencies, selectedCurrencyAddress, onCurrencyChange]);
 
   const selectedCurrencyInfo = useMemo(
     () => currencies.find(c => c.address.toLowerCase() === selectedCurrencyAddress.toLowerCase()),
@@ -299,7 +302,7 @@ const Calculator: FC<CalculatorProps> = ({
           {currencies.map((c) => (
             <motion.button
               key={c.address}
-              onClick={() => { setSelectedCurrencyAddress(c.address); setAmount(''); }}
+              onClick={() => { setSelectedCurrencyAddress(c.address); setAmount(''); onCurrencyChange?.(c.address); }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className={`p-2 rounded-lg text-xs font-medium transition-all ${

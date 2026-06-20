@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
 import { parseUnits, formatUnits, type Hash } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
 import Calculator, { type Currency } from '@/components/Calculator';
@@ -7,10 +7,7 @@ import { CURRENT_CONTRACTS } from '@/config/contracts';
 import { SALE_ABI, TOKEN_ABI } from '@/config/abis';
 
 // ─── Backend API Configuration ────────────────────────────────────────────────
-// TODO: ضع هنا عنوان الـ Backend API الخاص بك
-// مثال: const API_BASE_URL = 'https://api.yourproject.com';
-// أو: const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_BASE_URL = 'https://info-hyqj.onrender.com'; // ← عدّل هذا
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://info-hyqj.onrender.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18): string {
@@ -74,7 +71,10 @@ export default function BuyPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('ETH');
+  const [selectedCurrencyAddress, setSelectedCurrencyAddress] = useState<string>('');
+  const { signMessageAsync } = useSignMessage();
+  const ETH_SENTINEL = '0x0000000000000000000000000000000000000000';
+  const isEthCurrency = !selectedCurrencyAddress || selectedCurrencyAddress === ETH_SENTINEL;
   const [syncError, setSyncError] = useState<string | null>(null);
 
   // ── Contract Reads ────────────────────────────────────────────────────────────
@@ -144,34 +144,20 @@ export default function BuyPage() {
 
   // Get user's token balance (for ERC20 purchases)
   const { data: userTokenBalance, refetch: refetchTokenBalance } = useReadContract({
-    address: selectedCurrency !== 'ETH'
-      ? ({
-          ETH: undefined,
-          USDT: CURRENT_CONTRACTS.USDT,
-          USDC: CURRENT_CONTRACTS.USDC,
-          DAI: CURRENT_CONTRACTS.DAI,
-        }[selectedCurrency] as `0x${string}` | undefined)
-      : undefined,
+    address: !isEthCurrency ? (selectedCurrencyAddress as `0x${string}`) : undefined,
     abi: TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address && selectedCurrency !== 'ETH', refetchInterval: 15000 },
+    query: { enabled: !!address && !isEthCurrency, refetchInterval: 15000 },
   });
 
   // Get allowance for ERC20 tokens
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: selectedCurrency !== 'ETH'
-      ? ({
-          ETH: undefined,
-          USDT: CURRENT_CONTRACTS.USDT,
-          USDC: CURRENT_CONTRACTS.USDC,
-          DAI: CURRENT_CONTRACTS.DAI,
-        }[selectedCurrency] as `0x${string}` | undefined)
-      : undefined,
+    address: !isEthCurrency ? (selectedCurrencyAddress as `0x${string}`) : undefined,
     abi: TOKEN_ABI,
     functionName: 'allowance',
     args: address ? [address, CURRENT_CONTRACTS.SALE as `0x${string}`] : undefined,
-    query: { enabled: !!address && selectedCurrency !== 'ETH', refetchInterval: 15000 },
+    query: { enabled: !!address && !isEthCurrency, refetchInterval: 15000 },
   });
 
   // ── Write Contracts ───────────────────────────────────────────────────────────
@@ -183,6 +169,12 @@ export default function BuyPage() {
     hash: txHash ?? undefined,
     query: { enabled: !!txHash },
   });
+
+  // ── Currency Change Handler ───────────────────────────────────────────────────
+
+  const handleCurrencyChange = useCallback((addr: string) => {
+    setSelectedCurrencyAddress(addr);
+  }, []);
 
   // ── Effects ───────────────────────────────────────────────────────────────────
 
@@ -205,19 +197,9 @@ export default function BuyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txConfirmed, step]);
 
-  // ── Backend Sync Function ─────────────────────────────────────────────────────
-  /**
-   * TODO: Backend Integration - تسجيل عملية الشراء
-   * 
-   * هذا الدالة ترسل بيانات الشراء الناجحة إلى الـ Backend
-   * Endpoint المطلوب: POST /api/purchase
-   * البيانات المرسلة:
-   *   - walletAddress: عنوان المحفظة
-   *   - amount: كمية التوكنز المشتراة
-   *   - currency: العملة المستخدمة (ETH, USDT, USDC, DAI)
-   *   - txHash: هاش المعاملة على البلوكشين
-   *   - timestamp: وقت المعاملة
-   */
+  // ── Backend Sync: تسجيل عملية الشراء في قاعدة البيانات ─────────────────────
+  // Endpoint: POST /api/v1/purchase/record
+  // يرسل فقط walletAddress + txHash — الـ Backend يجلب التفاصيل من البلوكشين
   const syncPurchaseWithBackend = async () => {
     if (!address || !txHash) return;
     
@@ -225,29 +207,32 @@ export default function BuyPage() {
     setSyncError(null);
     
     try {
-      // TODO: عدّل عنوان الـ API حسب مشروعك
-      const response = await fetch(`${API_BASE_URL}/api/purchase`, {
+      // ── Wallet Signature for Backend Auth ─────────────────────────────
+      const authMessage = `Record purchase ${txHash} for ${address}`;
+      const signature = await signMessageAsync({ message: authMessage });
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/purchase/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-wallet-address': address,
+          'x-signature': signature,
+          'x-message': authMessage,
         },
         body: JSON.stringify({
           walletAddress: address,
-          amount: boughtAmount ? formatUnits(boughtAmount as bigint, 18) : '0',
-          currency: selectedCurrency,
           txHash: txHash,
-          timestamp: new Date().toISOString(),
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Backend sync failed: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error?.message || `Backend sync failed: ${response.status}`);
       }
 
       const data = await response.json();
       console.log('Purchase synced with backend:', data);
       
-      // ── نجاح المزامنة ──────────────────────────────────────────────
       setStep('idle');
       setSuccess(true);
       setTimeout(() => {
@@ -256,10 +241,15 @@ export default function BuyPage() {
         refetchAllowance();
       }, 1000);
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('Backend sync error:', err);
-      setSyncError('Purchase successful but failed to sync with database. Please contact support.');
-      // لا نمنع النجاح حتى لو فشلت المزامنة - المعاملة نجحت على البلوكشين
+      
+      if (err?.message?.includes('rejected') || err?.message?.includes('denied')) {
+        setSyncError('Authentication was cancelled. Your purchase succeeded on-chain but was not recorded. Please contact support.');
+      } else {
+        setSyncError('Purchase successful but failed to sync with database. Please contact support.');
+      }
+      
       setStep('idle');
       setSuccess(true);
     }
@@ -291,11 +281,11 @@ export default function BuyPage() {
     setError(null);
     setSuccess(false);
     setSyncError(null);
-    setSelectedCurrency(data.currency);
+    setSelectedCurrencyAddress(data.currency);
 
     try {
       // تحديد ما إذا كانت العملة هي ETH (العنوان الصفري)
-      const isEth = data.currency === '0x0000000000000000000000000000000000000000';
+      const isEth = data.currency === ETH_SENTINEL;
 
       if (isEth) {
         console.log('Starting ETH purchase:', {
@@ -384,7 +374,7 @@ export default function BuyPage() {
     return 0; // Will be updated after reading cooldown
   })[0];
 
-  const userBalance = selectedCurrency === 'ETH' ? undefined : userTokenBalance;
+  const userBalance = isEthCurrency ? undefined : userTokenBalance;
   const isLoading = step !== 'idle' || txIsWaiting;
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -532,6 +522,7 @@ export default function BuyPage() {
               userBalance={userBalance}
               userPurchased={userPurchased}
               walletCap={userRemainingCap}
+              onCurrencyChange={handleCurrencyChange}
             />
 
             {/* Step Indicator */}
