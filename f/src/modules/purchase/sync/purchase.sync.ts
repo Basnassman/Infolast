@@ -221,7 +221,7 @@ const syncBatch = async (
   for (const event of enrichedEvents) {
     try {
       // Map raw event to purchase data
-      const mapped = mapEventToPurchase(
+      const mapped = await mapEventToPurchase(
         event,
         SYNC_CONFIG.CHAIN_ID
       );

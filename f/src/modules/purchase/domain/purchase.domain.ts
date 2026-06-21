@@ -8,6 +8,11 @@ import {
   MappedPurchaseEvent,
   RawPurchasedEvent,
 } from "@modules/purchase/types/purchase.types";
+import {
+  getTokenPrice,
+  getCurrencyInfo,
+} from "@core/blockchain/priceOracle.contract";
+import { logger } from "@core/logger/logger";
 
 /**
  * =====================================================
@@ -86,10 +91,10 @@ export const getDecimalsForAsset = (asset: PaymentAsset): number => {
  * =====================================================
  */
 
-export const calculateUsdValue = (
+export const calculateUsdValue = async (
   asset: PaymentAsset,
   amountWei: string
-): string | null => {
+): Promise<string | null> => {
   const decimals = getDecimalsForAsset(asset);
   const formatted = ethers.formatUnits(amountWei, decimals);
 
@@ -98,8 +103,39 @@ export const calculateUsdValue = (
     return formatted;
   }
 
-  // ETH: requires price oracle integration
-  // Return null for now — can be enriched later via PriceOracle contract
+  // ETH: use PriceOracle to get USD value
+  try {
+    const currencyInfo = await getCurrencyInfo(ETH_SENTINEL);
+    if (currencyInfo.supported && Number(currencyInfo.priceUsd) > 0) {
+      const ethAmount = parseFloat(formatted);
+      const priceUsd = parseFloat(currencyInfo.priceUsd);
+      return (ethAmount * priceUsd).toString();
+    }
+  } catch (error: any) {
+    logger.warn(
+      { asset, error: error.message },
+      "Failed to get ETH price from Oracle, returning null"
+    );
+  }
+
+  return null;
+};
+
+/**
+ * Calculate token price in USD using PriceOracle
+ */
+export const calculateTokenPriceUsd = async (): Promise<string | null> => {
+  try {
+    const price = await getTokenPrice();
+    if (Number(price) > 0) {
+      return price;
+    }
+  } catch (error: any) {
+    logger.warn(
+      { error: error.message },
+      "Failed to get token price from Oracle, returning null"
+    );
+  }
   return null;
 };
 
@@ -109,11 +145,11 @@ export const calculateUsdValue = (
  * =====================================================
  */
 
-export const mapEventToPurchase = (
+export const mapEventToPurchase = async (
   event: RawPurchasedEvent,
   chainId: number,
   knownTokens?: CurrencyMapping[]
-): MappedPurchaseEvent => {
+): Promise<MappedPurchaseEvent> => {
   const paymentAsset = resolvePaymentAsset(event.currency, knownTokens);
 
   const tokenDecimals = 18; // FOR token is 18 decimals
@@ -122,7 +158,8 @@ export const mapEventToPurchase = (
   const paymentAmount = ethers.formatUnits(event.paid.toString(), paymentDecimals);
   const tokenReceived = ethers.formatUnits(event.tokens.toString(), tokenDecimals);
 
-  const usdValue = calculateUsdValue(paymentAsset, event.paid.toString());
+  const usdValue = await calculateUsdValue(paymentAsset, event.paid.toString());
+  const tokenPriceUsd = await calculateTokenPriceUsd();
 
   // Default source — refine with config if needed
   const source = PurchaseSource.PUBLIC;
@@ -141,6 +178,7 @@ export const mapEventToPurchase = (
     blockTimestamp: new Date(), // Overridden by sync layer with actual block timestamp
     source,
     usdValue,
+    tokenPriceUsd,
   };
 };
 

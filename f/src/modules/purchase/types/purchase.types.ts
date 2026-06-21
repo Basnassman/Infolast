@@ -37,6 +37,7 @@ export type MappedPurchaseEvent = {
   blockTimestamp: Date;
   source: PurchaseSource;
   usdValue: string | null;
+  tokenPriceUsd: string | null;
 };
 
 /**

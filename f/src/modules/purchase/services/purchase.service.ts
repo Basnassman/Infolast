@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { PaymentAsset, Prisma, PurchaseSource } from "@prisma/client";
 import { purchaseRepository } from "@modules/purchase/repositories/purchase.repository";
 import { userRepository } from "@modules/user/repositories/user.repository";
-import { classifyBuyer, resolvePaymentAsset, getDecimalsForAsset, calculateUsdValue } from "@modules/purchase/domain/purchase.domain";
+import { classifyBuyer, resolvePaymentAsset, getDecimalsForAsset, calculateUsdValue, calculateTokenPriceUsd } from "@modules/purchase/domain/purchase.domain";
 import {
   BuyerProfile,
   MappedPurchaseEvent,
@@ -57,6 +57,7 @@ export const purchaseService = {
       paymentAmountWei: event.paymentAmountWei,
       tokenReceived: new Prisma.Decimal(event.tokenReceived),
       tokenReceivedWei: event.tokenReceivedWei,
+      tokenPriceUsd: event.tokenPriceUsd ? new Prisma.Decimal(event.tokenPriceUsd) : null,
       usdValue: event.usdValue ? new Prisma.Decimal(event.usdValue) : null,
       chainId: event.chainId,
       blockNumber: BigInt(event.blockNumber),
@@ -157,6 +158,9 @@ export const purchaseService = {
     const paymentDecimals = getDecimalsForAsset(paymentAsset);
     const tokenDecimals = 18;
 
+    const usdValue = await calculateUsdValue(paymentAsset, paid.toString());
+    const tokenPriceUsd = await calculateTokenPriceUsd();
+
     const mappedEvent: MappedPurchaseEvent = {
       walletAddress: normalizedWallet,
       paymentAsset,
@@ -170,7 +174,8 @@ export const purchaseService = {
       blockHash: receipt.blockHash,
       blockTimestamp: new Date(), // will be overridden below
       source: PurchaseSource.PUBLIC,
-      usdValue: calculateUsdValue(paymentAsset, paid.toString()),
+      usdValue,
+      tokenPriceUsd,
     };
 
     // 7. Enrich with actual block timestamp
