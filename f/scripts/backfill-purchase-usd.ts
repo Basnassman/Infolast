@@ -26,6 +26,10 @@ const PRICE_ORACLE_ABI = [
   "function tokenPriceUsd() view returns (uint256)",
 ];
 
+// PriceOracle stores USD prices as uint256 with 6 decimal places.
+// e.g., $0.01 → 10000 (0.01 × 10^6)
+const PRICE_PRECISION = 10 ** 6;
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -72,9 +76,9 @@ async function main() {
   const ethPriceUsd = await getEthPriceUsd(oracle);
   const tokenPriceUsd = await getTokenPriceUsd(oracle);
 
-  console.log(`  ETH price: ${ethPriceUsd ? `$${ethPriceUsd}` : "unavailable"}`);
+  console.log(`  ETH price: ${ethPriceUsd ? `$${(ethPriceUsd / PRICE_PRECISION).toFixed(2)}` : "unavailable"}`);
   console.log(
-    `  Token price: ${tokenPriceUsd ? `$${tokenPriceUsd}` : "unavailable"}`
+    `  Token price: ${tokenPriceUsd ? `$${(tokenPriceUsd / PRICE_PRECISION).toFixed(4)}` : "unavailable"}`
   );
   console.log("");
 
@@ -109,15 +113,16 @@ async function main() {
         purchase.paymentAsset === PaymentAsset.ETH &&
         ethPriceUsd
       ) {
-        // ETH: amount × ETH price
+        // ETH: amount × ETH price (divide by PRICE_PRECISION to get actual USD value)
         const ethAmount = parseFloat(purchase.paymentAmount.toString());
-        updates.usdValue = new Prisma.Decimal(ethAmount * ethPriceUsd);
+        const ethPriceUsdHuman = ethPriceUsd / PRICE_PRECISION;
+        updates.usdValue = new Prisma.Decimal(ethAmount * ethPriceUsdHuman);
       }
     }
 
     // ─── Calculate tokenPriceUsd ─────────────────────────
     if (purchase.tokenPriceUsd === null && tokenPriceUsd) {
-      updates.tokenPriceUsd = new Prisma.Decimal(tokenPriceUsd);
+      updates.tokenPriceUsd = new Prisma.Decimal(tokenPriceUsd / PRICE_PRECISION);
     }
 
     // ─── Apply update ────────────────────────────────────

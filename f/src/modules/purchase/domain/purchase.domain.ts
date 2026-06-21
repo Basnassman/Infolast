@@ -15,6 +15,13 @@ import {
 import { logger } from "@core/logger/logger";
 
 /**
+ * PriceOracle stores USD prices as uint256 with 6 decimal places.
+ * e.g., $0.01 is stored as 10000 (0.01 × 10^6)
+ * e.g., $2000 ETH is stored as 2000000000 (2000 × 10^6)
+ */
+const PRICE_PRECISION = 10 ** 6; // PriceOracle stores USD prices with 6 decimal places
+
+/**
  * =====================================================
  * DEFAULT CURRENCY MAPPING
  * =====================================================
@@ -108,7 +115,7 @@ export const calculateUsdValue = async (
     const currencyInfo = await getCurrencyInfo(ETH_SENTINEL);
     if (currencyInfo.supported && Number(currencyInfo.priceUsd) > 0) {
       const ethAmount = parseFloat(formatted);
-      const priceUsd = parseFloat(currencyInfo.priceUsd);
+      const priceUsd = Number(currencyInfo.priceUsd) / PRICE_PRECISION;
       return (ethAmount * priceUsd).toString();
     }
   } catch (error: any) {
@@ -128,7 +135,7 @@ export const calculateTokenPriceUsd = async (): Promise<string | null> => {
   try {
     const price = await getTokenPrice();
     if (Number(price) > 0) {
-      return price;
+      return (Number(price) / PRICE_PRECISION).toString();
     }
   } catch (error: any) {
     logger.warn(

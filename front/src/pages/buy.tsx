@@ -17,6 +17,8 @@ function formatLargeNumber(value: bigint, decimals = 18): string {
   return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+
 function formatCountdown(seconds: number): string {
   if (seconds <= 0) return 'Ended';
   const d = Math.floor(seconds / 86400);
@@ -345,7 +347,7 @@ export default function BuyPage() {
             address: currencyAddress,
             abi: TOKEN_ABI,
             functionName: 'approve',
-            args: [CURRENT_CONTRACTS.SALE as `0x${string}`, data.currencyAmount],
+            args: [CURRENT_CONTRACTS.SALE as `0x${string}`, MAX_UINT256],
           });
           console.log('Approval tx:', approveTx);
           setTxHash(approveTx);
