@@ -20,6 +20,10 @@ import {
 
 const DEFAULT_CURRENCY_MAP: CurrencyMapping[] = [
   { address: ETH_SENTINEL, asset: PaymentAsset.ETH, decimals: 18 },
+  // Sepolia testnet stablecoins
+  { address: "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238", asset: PaymentAsset.USDC, decimals: 6 },
+  { address: "0xaa0e2d147e6a4febccebcede87a5d3a6e6f3d6f3c", asset: PaymentAsset.USDT, decimals: 6 },
+  { address: "0x3e622317f8c93f7328350cf0b8d9c6e5e1e6b5b5", asset: PaymentAsset.USDT, decimals: 18 },
 ];
 
 /**

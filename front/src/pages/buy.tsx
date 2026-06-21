@@ -75,6 +75,7 @@ export default function BuyPage() {
   const ETH_SENTINEL = '0x0000000000000000000000000000000000000000';
   const isEthCurrency = !selectedCurrencyAddress || selectedCurrencyAddress === ETH_SENTINEL;
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncRetrying, setSyncRetrying] = useState(false);
 
   // ── Contract Reads ────────────────────────────────────────────────────────────
   const { data: saleCap } = useReadContract({
@@ -199,52 +200,82 @@ export default function BuyPage() {
   // ── Backend Sync: تسجيل عملية الشراء في قاعدة البيانات ─────────────────────
   // Endpoint: POST /api/v1/purchase/record
   // يرسل فقط walletAddress + txHash — الـ Backend يجلب التفاصيل من البلوكشين
-  const syncPurchaseWithBackend = async () => {
+  const syncPurchaseWithBackend = async (isRetry = false) => {
     if (!address || !txHash) return;
     
-    setStep('syncing');
+    if (isRetry) {
+      setSyncRetrying(true);
+    } else {
+      setStep('syncing');
+    }
     setSyncError(null);
     
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/purchase/record`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-wallet-address': address,
-        },
-        body: JSON.stringify({
-          walletAddress: address,
-          txHash: txHash,
-        }),
-      });
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 2000;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        
+        const response = await fetch(`${API_BASE_URL}/api/v1/purchase/record`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-wallet-address': address,
+          },
+          body: JSON.stringify({
+            walletAddress: address,
+            txHash: txHash,
+          }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error?.message || `Backend sync failed: ${response.status}`);
-      }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error?.message || `Backend sync failed: ${response.status}`);
+        }
 
-      const data = await response.json();
-      console.log('Purchase synced with backend:', data);
-      
-      setStep('idle');
-      setSuccess(true);
-      setTimeout(() => {
-        refetchBought();
-        refetchTokenBalance();
-        refetchAllowance();
-      }, 1000);
-      
-    } catch (err: any) {
-      console.error('Backend sync error:', err);
-      
-      if (err?.message?.includes('rejected') || err?.message?.includes('denied')) {
-        setSyncError('Sync was cancelled. Your purchase succeeded on-chain but was not recorded. Please contact support.');
-      } else {
-        setSyncError('Purchase successful but failed to sync with database. Please contact support.');
+        const data = await response.json();
+        console.log('Purchase synced with backend:', data);
+        
+        setStep('idle');
+        setSuccess(true);
+        setSyncError(null);
+        setSyncRetrying(false);
+        setTimeout(() => {
+          refetchBought();
+          refetchTokenBalance();
+          refetchAllowance();
+        }, 1000);
+        return; // Success — exit retry loop
+        
+      } catch (err: any) {
+        console.error(`Backend sync attempt ${attempt}/${MAX_RETRIES} error:`, err);
+        
+        // If this was the last attempt, show the error
+        if (attempt === MAX_RETRIES) {
+          let errorMessage = 'Purchase successful but failed to sync with database.';
+          
+          if (err?.name === 'AbortError' || err?.message?.includes('timeout') || err?.message?.includes('aborted')) {
+            errorMessage = 'Sync timed out. The server may be starting up. Your purchase is saved on-chain.';
+          } else if (err?.message) {
+            // Show the actual backend error for debugging
+            errorMessage = `Sync failed: ${err.message}`;
+          }
+          
+          setSyncError(errorMessage);
+          setStep('idle');
+          // Don't set success=true here — show sync error instead
+          setSyncRetrying(false);
+          return;
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
       }
-      
-      setStep('idle');
-      setSuccess(true);
     }
   };
 
@@ -572,7 +603,22 @@ export default function BuyPage() {
                   exit={{ opacity: 0 }}
                 >
                   <p className="font-semibold mb-1">⚠️ Sync Warning</p>
-                  {syncError}
+                  <p className="mb-3">{syncError}</p>
+                  <button
+                    onClick={() => syncPurchaseWithBackend(true)}
+                    disabled={syncRetrying}
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-800 disabled:cursor-not-allowed rounded-lg text-black font-semibold text-xs transition-colors"
+                  >
+                    {syncRetrying ? (
+                      <span className="flex items-center gap-2 justify-center">
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Retrying...
+                      </span>
+                    ) : '🔄 Retry Sync'}
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>

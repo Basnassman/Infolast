@@ -120,9 +120,13 @@ export const purchaseService = {
     }
 
     // 3. Find the Purchased event in the receipt logs
-    const purchasedEventTopic = saleContractRead.interface.getEventTopic("Purchased");
+    const purchasedEvent = saleContractRead.interface.getEvent("Purchased");
+    if (!purchasedEvent) {
+      throw new Error("Purchased event not found in contract ABI");
+    }
+    const purchasedEventTopic = purchasedEvent.topicHash;
     const log = receipt.logs.find(
-      (l) => l.address.toLowerCase() === saleContractRead.target.toString().toLowerCase() && l.topics[0] === purchasedEventTopic
+      (l) => l.address.toLowerCase() === saleContractRead.target?.toString().toLowerCase() && l.topics[0] === purchasedEventTopic
     );
 
     if (!log) {
@@ -131,7 +135,7 @@ export const purchaseService = {
 
     // 4. Decode the event
     const decoded = saleContractRead.interface.decodeEventLog(
-      saleContractRead.interface.getEvent("Purchased"),
+      purchasedEvent,
       log.data,
       log.topics
     );
