@@ -65,4 +65,5 @@ export const syncStateRepository = {
 
 export const SYNC_KEYS = {
   SALE_LAST_BLOCK: "sale_last_processed_block",
+  VESTING_LAST_BLOCK: "vesting_last_processed_block",
 } as const;

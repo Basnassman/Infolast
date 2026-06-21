@@ -366,6 +366,15 @@ model DistributionClaim {
 // =====================================================
 // VESTING DOMAIN
 // =====================================================
+// The blockchain is the Source of Truth for all vesting logic.
+// The database serves as a Tracking & Analytics Layer only.
+//
+// Architecture:
+//   Blockchain → Allocated/Claimed Events → Sync Layer → Service → Repository → DB
+//
+// Events indexed from Vesting.sol:
+//   Allocated(user, amount)  — emitted when tokens are allocated to a user
+//   Claimed(user, amount)    — emitted when a user claims vested tokens
 
 model VestingSchedule {
   id String @id @default(cuid())
@@ -375,34 +384,31 @@ model VestingSchedule {
 
   source VestingSource
 
-  totalAmountWei String
+  // ─── Tracking Fields (mirrors contract state) ──────────────
+  totalAllocatedWei String
+  totalClaimedWei   String @default("0")
 
-  releasedAmountWei String @default("0")
+  // ─── Derived Analytics ─────────────────────────────────────
+  lastClaimedAt   DateTime?
+  claimCount      Int      @default(0)
+  lastClaimTxHash String?
 
-  startTime DateTime
-
-  cliffTime DateTime
-
-  endTime DateTime
-
-  revoked Boolean @default(false)
-
-  revokable Boolean @default(false)
-
-  vestingDirty Boolean @default(false)
-
+  // ─── Timestamps ────────────────────────────────────────────
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  releases VestingRelease[]
+  // ─── Relations ─────────────────────────────────────────────
+  claimEvents VestingClaimEvent[]
+  claims      DistributionClaim[]
 
-  claims DistributionClaim[]
-
-  @@index([vestingDirty])
   @@index([source])
+  @@index([userId])
+  @@index([source, userId])
 }
 
-model VestingRelease {
+// Individual claim events indexed from blockchain Claimed() events.
+// Each row = one on-chain claim transaction.
+model VestingClaimEvent {
   id String @id @default(cuid())
 
   vestingScheduleId String
@@ -410,11 +416,16 @@ model VestingRelease {
 
   amountWei String
 
-  txHash String?
+  txHash String @unique
 
-  releasedAt DateTime @default(now())
+  blockNumber    BigInt?
+  blockTimestamp DateTime?
+
+  createdAt DateTime @default(now())
 
   @@index([vestingScheduleId])
+  @@index([txHash])
+  @@index([blockTimestamp])
 }
 
 // =====================================================

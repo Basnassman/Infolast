@@ -2,8 +2,8 @@ import { Express } from "express";
 import  authRoutes  from "@modules/auth/routes/auth.routes";
 import  airdropRoutes  from "@modules/airdrop/routes/airdrop.routes";
 import  adminRoutes  from "@modules/admin/routes/admin.routes";
-import  taskRoutes from "@modules/tasks/routes/task.routes";
-import  purchaseRoutes from "@modules/purchase/routes/purchase.routes";
+import  taskRoutes from "@modules/tasks/routes/task.routes";import  purchaseRoutes  from "@modules/purchase/routes/purchase.routes";
+import  vestingRoutes  from "@modules/vesting/routes/vesting.routes";
 import { rebuildAndSync } from "@modules/airdrop/workers/rebuild.worker";
 import { prometheusHandler } from "@core/monitoring/prometheus";
 import { readinessHandler } from "@core/monitoring/readiness";
@@ -66,6 +66,11 @@ export const registerRoutes = (
   app.use(
     "/api/v1/purchase",
     purchaseRoutes
+  );
+
+  app.use(
+    "/api/v1/vesting",
+    vestingRoutes
   );
 
 app.get("/metrics", prometheusHandler);

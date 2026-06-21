@@ -3,21 +3,24 @@ import { wallet, provider, config } from "@core/blockchain/provider";
 import VestingABI from "@core/abis/Vesting";
 import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
-// Read-only contract
+// ─── Read-only Contract ─────────────────────────────────────────────────────
+
 export const vestingContractRead = new ethers.Contract(
-  config.vesting,
+  config.vesting!,
   VestingABI,
   provider
 );
 
-// Write contract (requires admin wallet)
+// ─── Write Contract (requires admin wallet) ─────────────────────────────────
+
 export const vestingContractWrite = wallet
-  ? new ethers.Contract(config.vesting, VestingABI, wallet)
+  ? new ethers.Contract(config.vesting!, VestingABI, wallet)
   : null;
 
-// Vesting info
+// ─── Contract Info ──────────────────────────────────────────────────────────
+
 export const getVestingInfo = async () => {
-  const [token, treasury, startTime, totalAllocated, totalClaimed, paused] = 
+  const [token, treasury, startTime, totalAllocated, totalClaimed, paused] =
     await Promise.all([
       vestingContractRead.token(),
       vestingContractRead.treasury(),
@@ -38,7 +41,8 @@ export const getVestingInfo = async () => {
   };
 };
 
-// User vesting schedule
+// ─── User Vesting Info ──────────────────────────────────────────────────────
+
 export const getUserVesting = async (address: string) => {
   const [schedule, releasable] = await Promise.all([
     vestingContractRead.vesting(address),
@@ -53,7 +57,8 @@ export const getUserVesting = async (address: string) => {
   };
 };
 
-// Constants
+// ─── Constants ──────────────────────────────────────────────────────────────
+
 export const getVestingConstants = async () => {
   const [cliff, month, totalStages, stageShare] = await Promise.all([
     vestingContractRead.CLIFF(),
@@ -70,21 +75,82 @@ export const getVestingConstants = async () => {
   };
 };
 
-// Claim (user calls this from frontend)
+// ─── Events: Allocated(address user, uint256 amount) ───────────────────────
+
+export type AllocatedEvent = {
+  user: string;
+  amount: bigint;
+  txHash: string;
+  blockNumber: number;
+  blockHash: string;
+  logIndex: number;
+};
+
+export const getPastAllocations = async (
+  fromBlock: number,
+  toBlock?: number
+): Promise<AllocatedEvent[]> => {
+  const filter = vestingContractRead.filters.Allocated();
+  const events = await vestingContractRead.queryFilter(filter, fromBlock, toBlock);
+
+  return events.map((event: any) => ({
+    user: event.args.user,
+    amount: event.args.amount,
+    txHash: event.transactionHash,
+    blockNumber: event.blockNumber,
+    blockHash: event.blockHash,
+    logIndex: event.logIndex,
+  }));
+};
+
+// ─── Events: Claimed(address user, uint256 amount) ─────────────────────────
+
+export type ClaimedEvent = {
+  user: string;
+  amount: bigint;
+  txHash: string;
+  blockNumber: number;
+  blockHash: string;
+  logIndex: number;
+};
+
+export const getPastClaims = async (
+  fromBlock: number,
+  toBlock?: number
+): Promise<ClaimedEvent[]> => {
+  const filter = vestingContractRead.filters.Claimed();
+  const events = await vestingContractRead.queryFilter(filter, fromBlock, toBlock);
+
+  return events.map((event: any) => ({
+    user: event.args.user,
+    amount: event.args.amount,
+    txHash: event.transactionHash,
+    blockNumber: event.blockNumber,
+    blockHash: event.blockHash,
+    logIndex: event.logIndex,
+  }));
+};
+
+// ─── Latest Block ───────────────────────────────────────────────────────────
+
+export const getLatestBlockNumber = async (): Promise<number> => {
+  return provider.getBlockNumber();
+};
+
+// ─── Write Operations ───────────────────────────────────────────────────────
+
 export const claimVesting = async () => {
   if (!vestingContractWrite) throw new ConfigurationError("Wallet not configured");
   const tx = await vestingContractWrite.claim();
   return tx.hash;
 };
 
-// Allocate (admin only)
 export const allocateVesting = async (user: string, amount: string) => {
   if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await vestingContractWrite.allocate(user, amount);
   return tx.hash;
 };
 
-// Deposit (admin only)
 export const depositTokens = async (amount: string) => {
   if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
   const tx = await vestingContractWrite.deposit(amount);

@@ -1,6 +1,7 @@
 import { CronJob } from "cron";
 import { cronRebuild } from "../../modules/airdrop/workers/rebuild.worker";
 import { syncPurchaseEvents } from "@modules/purchase/sync/purchase.sync";
+import { syncVestingEvents } from "@modules/vesting/sync/vesting.sync";
 import { logger } from "@core/logger/logger";
 
 /**
@@ -15,6 +16,7 @@ import { logger } from "@core/logger/logger";
 
 let merkleCronJob: CronJob | null = null;
 let purchaseSyncCronJob: CronJob | null = null;
+let vestingSyncCronJob: CronJob | null = null;
 
 /**
  * Initialize cron jobs
@@ -80,6 +82,34 @@ export const initCronJobs = () => {
   );
 
   logger.info("[Cron] Purchase sync scheduled every 5 minutes");
+
+  // Vesting Sync: Every 5 minutes
+  vestingSyncCronJob = new CronJob(
+    "*/5 * * * *",
+    async () => {
+      logger.info("[Cron] Vesting sync triggered");
+      try {
+        const result = await syncVestingEvents();
+        if (result.totalEvents > 0) {
+          logger.info(
+            {
+              allocatedEvents: result.allocatedEvents,
+              claimedEvents: result.claimedEvents,
+              duration: result.duration,
+            },
+            "[Cron] Vesting sync completed"
+          );
+        }
+      } catch (error: any) {
+        logger.error({ err: error }, "[Cron] Vesting sync failed");
+      }
+    },
+    null,
+    true,
+    "UTC"
+  );
+
+  logger.info("[Cron] Vesting sync scheduled every 5 minutes");
 };
 
 /**
@@ -91,6 +121,9 @@ export const stopCronJobs = () => {
   }
   if (purchaseSyncCronJob) {
     purchaseSyncCronJob.stop();
+  }
+  if (vestingSyncCronJob) {
+    vestingSyncCronJob.stop();
   }
   logger.info("[Cron] All jobs stopped");
 };
@@ -107,6 +140,10 @@ export const getCronStatus = () => {
     purchaseSync: {
       isActive: purchaseSyncCronJob?.isActive ?? false,
       nextRun: purchaseSyncCronJob ? new Date(purchaseSyncCronJob.nextDate().toString()) : null,
+    },
+    vestingSync: {
+      isActive: vestingSyncCronJob?.isActive ?? false,
+      nextRun: vestingSyncCronJob ? new Date(vestingSyncCronJob.nextDate().toString()) : null,
     },
   };
 };

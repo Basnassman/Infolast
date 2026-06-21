@@ -1,143 +1,269 @@
-import { prisma } from "@core/db/prisma";
-import { getUserVesting, getVestingConstants } from "@core/blockchain/vesting.contract";
-import { calculateUnlocked, calculateVested, getVestingProgress, getNextUnlock } from "@modules/vesting/domain/vesting.domain";
-import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
-
-const DECIMALS = 18;
-
-/**
- * تحويل FOR إلى wei
- */
-const toWei = (tokens: string | number): string => {
-  return (BigInt(Math.floor(Number(tokens) * 10 ** DECIMALS))).toString();
-};
-
-/**
- * 🔓 Record vesting claim
- * 
- * يستقبل من Frontend بعد سحب التوكنز من العقد:
- * {
- *   wallet: "0x...",
- *   txHash: "0x...",
- *   amount: "25000000000000000000"  // wei
- * }
- */
-export const recordVestingClaim = async (
-  wallet: string,
-  txHash: string,
-  amountWei: string
-) => {
-  const normalizedWallet = wallet.toLowerCase();
-
-  return await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { wallet: normalizedWallet }
-    });
-
-    if (!user) throw new UserNotFoundError(normalizedWallet);
-
-    // تحويل wei إلى FOR
-    const amountFor = (BigInt(amountWei) / BigInt(10 ** DECIMALS)).toString();
-
-    // إنشاء سجل السحب
-    const claim = await tx.vestingClaim.create({
-      data: {
-        userId: normalizedWallet,
-        txHash,
-        amountWei,
-        amountFor,
-      }
-    });
-
-    // تحديث حالة المستخدم
-    await tx.user.update({
-      where: { wallet: normalizedWallet },
-      data: {
-        hasClaimedTokens: true,
-        tokensClaimedAt: new Date(),
-        tokensClaimTxHash: txHash,
-      }
-    });
-
-    // Audit Log
-    await tx.auditLog.create({
-      data: {
-        action: "VESTING_CLAIM",
-        userId: normalizedWallet,
-        txHash,
-        metadata: { amountWei, amountFor }
-      }
-    });
-
-    return claim;
-  });
-};
+import { VestingSource } from "@prisma/client";
+import { vestingRepository } from "@modules/vesting/repositories/vesting.repository";
+import { userRepository } from "@modules/user/repositories/user.repository";
+import {
+  classifyParticipant,
+  buildParticipantProfile,
+  computeAnalytics,
+} from "@modules/vesting/domain/vesting.domain";
+import {
+  VestingEvent,
+  VestingParticipantProfile,
+  VestingAnalytics,
+  RecentClaim,
+} from "@modules/vesting/types/vesting.types";
+import { logger } from "@core/logger/logger";
 
 /**
- * 📊 Get user vesting status (from blockchain + database)
+ * =====================================================
+ * VESTING SERVICE
+ * =====================================================
+ *
+ * Responsible ONLY for:
+ * - Business logic
+ * - Validation
+ * - Processing events
+ * - Building profiles from tracking data
+ *
+ * NOT responsible for:
+ * - Prisma queries (→ repository)
+ * - Blockchain reading (→ sync layer)
+ *
+ * The blockchain is the Source of Truth.
+ * This service processes events into the tracking layer.
  */
-export const getUserVestingStatus = async (wallet: string) => {
-  const normalizedWallet = wallet.toLowerCase();
 
-  // جلب من العقد
-  const [vestingData, constants] = await Promise.all([
-    getUserVesting(normalizedWallet),
-    getVestingConstants(),
-  ]);
+export const vestingService = {
+  /**
+   * Process a single vesting event from the indexer.
+   *
+   * - ALLOCATED: Creates or updates the VestingSchedule for this user.
+   * - CLAIMED: Records a claim event and updates aggregate stats.
+   *
+   * Idempotent — processing the same event twice is safe.
+   */
+  async processEvent(event: VestingEvent & { blockTimestamp?: Date }): Promise<{
+    processed: boolean;
+    scheduleId?: string;
+  }> {
+    // Find or create user
+    const user = await userRepository.findOrCreate(event.walletAddress);
 
-  const now = Math.floor(Date.now() / 1000);
-
-  // حساب المستحقات
-  const vestingInput = {
-    total: vestingData.total,
-    claimed: vestingData.claimed,
-    startTime: 0, // يجب جلبه من العقد
-    now,
-    cliff: constants.cliff,
-    month: constants.month,
-    totalStages: constants.totalStages,
-    stageShare: constants.stageShare,
-  };
-
-  const releasable = calculateUnlocked(vestingInput);
-  const vested = calculateVested(vestingInput);
-  const progress = getVestingProgress(vestingInput);
-  const nextUnlock = getNextUnlock(vestingInput);
-
-  // جلب من قاعدة البيانات
-  const user = await prisma.user.findUnique({
-    where: { wallet: normalizedWallet },
-    include: {
-      vestingClaims: {
-        orderBy: { createdAt: "desc" }
-      }
+    if (event.type === "ALLOCATED") {
+      return this.processAllocation(user.id, event);
     }
-  });
 
-  return {
-    wallet: normalizedWallet,
-    total: vestingData.total,
-    claimed: vestingData.claimed,
-    remaining: vestingData.remaining,
-    releasable,
-    vested,
-    progress,
-    nextUnlock,
-    hasClaimedTokens: user?.hasClaimedTokens || false,
-    claims: user?.vestingClaims || [],
-  };
-};
+    return this.processClaim(user.id, event);
+  },
 
-/**
- * 📜 Get user vesting claims history
- */
-export const getUserVestingClaims = async (wallet: string) => {
-  const normalizedWallet = wallet.toLowerCase();
+  /**
+   * Process an Allocated event.
+   * Creates or updates the vesting schedule.
+   */
+  async processAllocation(
+    userId: string,
+    event: VestingEvent & { blockTimestamp?: Date }
+  ): Promise<{ processed: boolean; scheduleId: string }> {
+    const schedule = await vestingRepository.upsertSchedule({
+      walletAddress: event.walletAddress,
+      source: VestingSource.PRESALE, // Default; can be refined with config
+      totalAllocatedWei: event.amountWei,
+    });
 
-  const claims = await prisma.vestingClaim.findMany({
-    where: { userId: normalizedWallet },
-    orderBy: { createdAt: "desc" }
-  });
+    logger.info(
+      {
+        scheduleId: schedule.id,
+        walletAddress: event.walletAddress,
+        amountWei: event.amountWei,
+        txHash: event.txHash,
+      },
+      "Vesting allocation recorded"
+    );
 
-  return claims;
+    return { processed: true, scheduleId: schedule.id };
+  },
+
+  /**
+   * Process a Claimed event.
+   * Records the claim and updates aggregate stats.
+   *
+   * Idempotent — duplicate txHash is skipped.
+   */
+  async processClaim(
+    userId: string,
+    event: VestingEvent & { blockTimestamp?: Date }
+  ): Promise<{ processed: boolean; scheduleId?: string }> {
+    // Find the schedule for this user
+    const schedule = await vestingRepository.findByWallet(
+      event.walletAddress
+    );
+
+    if (!schedule) {
+      logger.warn(
+        {
+          walletAddress: event.walletAddress,
+          txHash: event.txHash,
+        },
+        "Claim event for unknown schedule — skipping"
+      );
+      return { processed: false };
+    }
+
+    // Record the claim event (idempotent)
+    await vestingRepository.recordClaimEvent({
+      scheduleId: schedule.id,
+      amountWei: event.amountWei,
+      txHash: event.txHash,
+      blockNumber: BigInt(event.blockNumber),
+      blockTimestamp: event.blockTimestamp ?? new Date(),
+    });
+
+    // Always update aggregate stats — idempotent operation
+    await vestingRepository.updateScheduleClaimStats(schedule.id);
+
+    logger.info(
+      {
+        scheduleId: schedule.id,
+        walletAddress: event.walletAddress,
+        amountWei: event.amountWei,
+        txHash: event.txHash,
+      },
+      "Vesting claim processed"
+    );
+
+    return { processed: true, scheduleId: schedule.id };
+  },
+
+  /**
+   * Get vesting participant profile.
+   * Combines database tracking data with classification.
+   */
+  async getParticipantProfile(
+    walletAddress: string
+  ): Promise<VestingParticipantProfile | null> {
+    const normalizedWallet = walletAddress.toLowerCase();
+
+    const user = await userRepository.findByWallet(normalizedWallet);
+    if (!user) return null;
+
+    const schedule = await vestingRepository.findByWallet(normalizedWallet);
+    if (!schedule) return null;
+
+    // Derive classification from relations
+    // userRepository.findByWallet includes airdropParticipant via Prisma include
+    const hasAirdrop = !!(user as any).airdropParticipant;
+    const classification = classifyParticipant(hasAirdrop, true);
+
+    return buildParticipantProfile(schedule, classification);
+  },
+
+  /**
+   * Get vesting analytics for admin dashboard.
+   */
+  async getAnalytics(): Promise<VestingAnalytics> {
+    const [totals, neverClaimed, fullyClaimed, bySource, classifications] = await Promise.all([
+      vestingRepository.getAggregatedTotals(),
+      vestingRepository.findNeverClaimed(),
+      vestingRepository.findFullyClaimed(),
+      vestingRepository.getStatsBySource(),
+      vestingRepository.getClassificationCounts(),
+    ]);
+
+    return computeAnalytics({
+      totals,
+      neverClaimed: neverClaimed.length,
+      fullyClaimed: fullyClaimed.length,
+      bySource: bySource.map((s) => ({
+        source: s.source,
+        count: Number(s.count),
+        totalAllocatedWei: s.totalAllocatedWei ?? "0",
+        totalClaimedWei: s.totalClaimedWei ?? "0",
+      })),
+      classifications: {
+        participantOnly: classifications.participantOnly,
+        buyerOnly: classifications.buyerOnly,
+        buyerParticipant: classifications.buyerParticipant,
+      },
+    });
+  },
+
+  /**
+   * Get recent claim events (admin dashboard).
+   */
+  async getRecentClaims(limit: number): Promise<RecentClaim[]> {
+    const events = await vestingRepository.findRecentClaims(limit);
+
+    return events.map((event) => ({
+      walletAddress: event.vestingSchedule.userId,
+      amountWei: event.amountWei,
+      txHash: event.txHash,
+      blockNumber: event.blockNumber,
+      blockTimestamp: event.blockTimestamp,
+      createdAt: event.createdAt,
+    }));
+  },
+
+  /**
+   * Record a vesting claim reported by the frontend.
+   *
+   * This is a fallback for when the sync indexer hasn't processed
+   * the Claimed event yet. The indexer is the primary source —
+   * this method is called by the frontend after a successful claim.
+   */
+  async recordFrontendClaim(
+    walletAddress: string,
+    txHash: string,
+    amountWei: string
+  ): Promise<{ created: boolean; scheduleId?: string }> {
+    const normalizedWallet = walletAddress.toLowerCase();
+
+    // Idempotency check
+    const existing = await vestingRepository.findClaimByTxHash(txHash);
+    if (existing) {
+      logger.debug({ txHash }, "Frontend claim: already recorded, skipping");
+      return { created: false };
+    }
+
+    // Create or find user
+    await userRepository.findOrCreate(normalizedWallet);
+
+    // Find schedule
+    const schedule = await vestingRepository.findByWallet(normalizedWallet);
+
+    if (!schedule) {
+      // Schedule doesn't exist yet — sync hasn't run or allocation hasn't happened
+      // Create a minimal schedule so we can record the claim
+      const newSchedule = await vestingRepository.upsertSchedule({
+        walletAddress: normalizedWallet,
+        source: VestingSource.PRESALE,
+        totalAllocatedWei: "0", // Will be updated by sync
+      });
+
+      // Record the claim event
+      await vestingRepository.recordClaimEvent({
+        scheduleId: newSchedule.id,
+        amountWei,
+        txHash,
+        blockNumber: BigInt(0), // Will be enriched by sync
+        blockTimestamp: new Date(),
+      });
+
+      await vestingRepository.updateScheduleClaimStats(newSchedule.id);
+
+      return { created: true, scheduleId: newSchedule.id };
+    }
+
+    // Record claim event
+    await vestingRepository.recordClaimEvent({
+      scheduleId: schedule.id,
+      amountWei,
+      txHash,
+      blockNumber: BigInt(0),
+      blockTimestamp: new Date(),
+    });
+
+    await vestingRepository.updateScheduleClaimStats(schedule.id);
+
+    return { created: true, scheduleId: schedule.id };
+  },
 };
