@@ -10,7 +10,7 @@ import { VESTING_ABI } from '@/config/abis';
 // TODO: ضع هنا عنوان الـ Backend API الخاص بك
 // مثال: const API_BASE_URL = 'https://api.yourproject.com';
 // أو: const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_BASE_URL = 'https://infolast.onrender.com'; // ← عدّل هذا
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://infolast.onrender.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18, fractionDigits = 2): string {
@@ -64,6 +64,21 @@ interface StageInfo {
   status: 'locked' | 'available' | 'claimed';
 }
 
+// ─── Backend Types ────────────────────────────────────────────────────────────
+interface VestingProfile {
+  walletAddress: string;
+  source: string;
+  totalAllocatedWei: string;
+  totalClaimedWei: string;
+  remainingWei: string;
+  status: 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED';
+  progress: number;
+  lastClaimedAt: string | null;
+  claimCount: number;
+  lastClaimTxHash: string | null;
+  classification: string;
+}
+
 function computeStages(
   totalAllocation: bigint,
   claimedAmount: bigint,
@@ -113,7 +128,9 @@ export default function VestingPage() {
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncRetrying, setSyncRetrying] = useState(false);
   const [cliffCountdown, setCliffCountdown] = useState(0);
+  const [profile, setProfile] = useState<VestingProfile | null>(null);
 
   // ── Read Constants from Contract ───────────────────────────────────────────
   const { data: cliffConstant } = useReadContract({
@@ -203,10 +220,9 @@ export default function VestingPage() {
 
   // ── Effects ─────────────────────────────────────────────────────────────────
   
-  // On claim confirmed - sync with backend (نفس منطق Buy.tsx)
+  // On claim confirmed - sync with backend
   useEffect(() => {
     if (claimConfirmed && claimStep === 'waiting') {
-      // ── Backend Sync: تسجيل عملية السحب في قاعدة البيانات ──────────────
       syncClaimWithBackend();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,60 +238,96 @@ export default function VestingPage() {
     return () => clearInterval(id);
   }, [startTime, cliffSeconds]);
 
-  // ── Backend Sync Function ─────────────────────────────────────────────────────
-  /**
-   * TODO: Backend Integration - تسجيل عملية السحب من الاستحقاق
-   * 
-   * هذا الدالة ترسل بيانات السحب الناجحة إلى الـ Backend
-   * Endpoint المطلوب: POST /api/vesting/claim
-   * البيانات المرسلة:
-   *   - walletAddress: عنوان المحفظة
-   *   - amount: كمية التوكنز المسحوبة
-   *   - txHash: هاش المعاملة على البلوكشين
-   *   - timestamp: وقت المعاملة
-   */
-  const syncClaimWithBackend = async () => {
-    if (!address || !claimTxHash) return;
-    
-    setClaimStep('syncing');
-    setSyncError(null);
-    
+  // Fetch backend profile on wallet connect
+  useEffect(() => {
+    if (address && isConnected) {
+      fetchProfile(address);
+    } else {
+      setProfile(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConnected]);
+
+  // ── Fetch vesting profile from backend ────────────────────────────────────
+  const fetchProfile = async (wallet: string) => {
     try {
-      // TODO: عدّل عنوان الـ API حسب مشروعك
-      const response = await fetch(`${API_BASE_URL}/api/vesting/claim`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress: address,
-          amount: releasable ? formatUnits(releasable as bigint, 18) : '0',
-          txHash: claimTxHash,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend sync failed: ${response.status}`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/vesting/status/${wallet}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data.data);
       }
-
-      const data = await response.json();
-      console.log('Vesting claim synced with backend:', data);
-      
-      // ── نجاح المزامنة ──────────────────────────────────────────────
-      setClaimStep('idle');
-      setClaimSuccess(true);
-      refetchVesting();
-      refetchReleasable();
-      
     } catch (err) {
-      console.error('Backend sync error:', err);
-      setSyncError('Claim successful but failed to sync with database. Please contact support.');
-      // لا نمنع النجاح حتى لو فشلت المزامنة - المعاملة نجحت على البلوكشين
-      setClaimStep('idle');
-      setClaimSuccess(true);
-      refetchVesting();
-      refetchReleasable();
+      console.warn('Failed to fetch vesting profile:', err);
+    }
+  };
+
+  // ── Backend Sync: POST /api/v1/vesting/claim ───────────────────────────────
+  const syncClaimWithBackend = async (isRetry = false) => {
+    if (!address || !claimTxHash) return;
+
+    if (isRetry) {
+      setSyncRetrying(true);
+    } else {
+      setClaimStep('syncing');
+    }
+    setSyncError(null);
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 2000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/vesting/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet: address,
+            txHash: claimTxHash,
+            amountWei: releasable ? (releasable as bigint).toString() : '0',
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error?.message || `Backend sync failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Vesting claim synced:', data);
+
+        setClaimStep('idle');
+        setClaimSuccess(true);
+        setSyncError(null);
+        setSyncRetrying(false);
+        refetchVesting();
+        refetchReleasable();
+        fetchProfile(address);
+        return;
+
+      } catch (err: any) {
+        console.error(`Backend sync attempt ${attempt}/${MAX_RETRIES} error:`, err);
+
+        if (attempt === MAX_RETRIES) {
+          let errorMessage = 'Claim successful but failed to sync with database.';
+          if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
+            errorMessage = 'Sync timed out. Your claim is saved on-chain.';
+          } else if (err?.message) {
+            errorMessage = `Sync failed: ${err.message}`;
+          }
+          setSyncError(errorMessage);
+          setClaimStep('idle');
+          setSyncRetrying(false);
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+      }
     }
   };
 
@@ -693,7 +745,22 @@ export default function VestingPage() {
                 exit={{ opacity: 0 }}
               >
                 <p className="font-semibold mb-1">⚠️ Sync Warning</p>
-                {syncError}
+                <p className="mb-3">{syncError}</p>
+                <button
+                  onClick={() => syncClaimWithBackend(true)}
+                  disabled={syncRetrying}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-800 disabled:cursor-not-allowed rounded-lg text-black font-semibold text-xs transition-colors"
+                >
+                  {syncRetrying ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Retrying...
+                    </span>
+                  ) : '🔄 Retry Sync'}
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -738,6 +805,54 @@ export default function VestingPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* ── Backend Profile ── */}
+          {isConnected && hasAllocation && profile && (
+            <motion.div
+              className="bg-zinc-900 rounded-xl border border-zinc-800 p-5"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, transition: { delay: 0.35 } }}
+            >
+              <p className="text-xs text-zinc-500 mb-3 uppercase tracking-wider">Database Tracking</p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-zinc-800/60 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500">Source</p>
+                  <p className="text-white font-semibold mt-1 text-sm">
+                    {profile.source}
+                  </p>
+                </div>
+                <div className="bg-zinc-800/60 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500">Classification</p>
+                  <p className="text-white font-semibold mt-1 text-sm">
+                    {profile.classification === 'BUYER_ONLY' ? 'Buyer Only' : profile.classification === 'PARTICIPANT_ONLY' ? 'Participant Only' : profile.classification === 'BUYER_PARTICIPANT' ? 'Buyer + Participant' : profile.classification}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-zinc-800/60 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500">Claim Count</p>
+                  <p className="text-teal-400 font-semibold mt-1 text-sm">
+                    {profile.claimCount}
+                  </p>
+                </div>
+                <div className="bg-zinc-800/60 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500">DB Progress</p>
+                  <p className="text-emerald-400 font-semibold mt-1 text-sm">
+                    {profile.progress}%
+                  </p>
+                </div>
+                <div className="bg-zinc-800/60 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500">Status</p>
+                  <p className={`font-semibold mt-1 text-sm ${
+                    profile.status === 'COMPLETED' ? 'text-emerald-400' :
+                    profile.status === 'PARTIAL' ? 'text-teal-400' : 'text-zinc-400'
+                  }`}>
+                    {profile.status.replace('_', ' ')}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* ── Info Note ── */}
           <motion.div
