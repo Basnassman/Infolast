@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { formatUnits, type Hash } from 'viem';
@@ -131,6 +131,8 @@ export default function VestingPage() {
   const [syncRetrying, setSyncRetrying] = useState(false);
   const [cliffCountdown, setCliffCountdown] = useState(0);
   const [profile, setProfile] = useState<VestingProfile | null>(null);
+  const [claimOnChainSuccess, setClaimOnChainSuccess] = useState(false);
+  const capturedReleasableRef = useRef<string>('0');
 
   // ── Read Constants from Contract ───────────────────────────────────────────
   const { data: cliffConstant } = useReadContract({
@@ -220,9 +222,18 @@ export default function VestingPage() {
 
   // ── Effects ─────────────────────────────────────────────────────────────────
   
-  // On claim confirmed - sync with backend
+  // On claim confirmed - refetch data & sync with backend
   useEffect(() => {
     if (claimConfirmed && claimStep === 'waiting') {
+      // The on-chain claim succeeded — mark success immediately
+      setClaimOnChainSuccess(true);
+      setClaimSuccess(true);
+
+      // Refetch contract data so releasable goes to 0 and UI updates
+      refetchVesting();
+      refetchReleasable();
+
+      // Start backend sync (non-blocking)
       syncClaimWithBackend();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,6 +286,9 @@ export default function VestingPage() {
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000;
 
+    // Use the captured releasable amount (before refetch zeroed it out)
+    const amountWeiToSend = capturedReleasableRef.current;
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const controller = new AbortController();
@@ -286,7 +300,7 @@ export default function VestingPage() {
           body: JSON.stringify({
             wallet: address,
             txHash: claimTxHash,
-            amountWei: releasable ? (releasable as bigint).toString() : '0',
+            amountWei: amountWeiToSend,
           }),
           signal: controller.signal,
         });
@@ -320,9 +334,15 @@ export default function VestingPage() {
           } else if (err?.message) {
             errorMessage = `Sync failed: ${err.message}`;
           }
-          setSyncError(errorMessage);
+          // The on-chain claim succeeded — keep success visible
           setClaimStep('idle');
+          setClaimSuccess(true);
+          setSyncError(errorMessage);
           setSyncRetrying(false);
+          // Refetch contract data so the UI reflects the on-chain state
+          refetchVesting();
+          refetchReleasable();
+          fetchProfile(address);
           return;
         }
 
@@ -352,7 +372,7 @@ export default function VestingPage() {
     : [];
 
   const isClaimLoading = claimStep !== 'idle';
-  const canClaim = hasAllocation && cliffReached && releasableAmount > 0n && !isPaused;
+  const canClaim = hasAllocation && cliffReached && releasableAmount > 0n && !isPaused && !claimOnChainSuccess;
 
   const globalClaimedPercent =
     totalAllocatedGlobal && (totalAllocatedGlobal as bigint) > 0n && totalClaimedGlobal
@@ -372,7 +392,11 @@ export default function VestingPage() {
     }
     setClaimError(null);
     setClaimSuccess(false);
+    setClaimOnChainSuccess(false);
     setSyncError(null);
+    // Capture the releasable amount BEFORE the claim tx goes through
+    // (wagmi may refetch and zero it out after confirmation)
+    capturedReleasableRef.current = releasable ? (releasable as bigint).toString() : '0';
     
     try {
       setClaimStep('claiming');
@@ -670,7 +694,7 @@ export default function VestingPage() {
               </motion.div>
 
               {/* Claimable Amount */}
-              {releasableAmount > 0n && (
+              {releasableAmount > 0n && !claimOnChainSuccess && (
                 <motion.div
                   className="bg-teal-900/20 border border-teal-700/40 rounded-xl p-4 text-center"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -776,7 +800,9 @@ export default function VestingPage() {
               >
                 <p className="font-semibold mb-1">Tokens Claimed Successfully!</p>
                 <p className="text-xs text-emerald-400/80 mb-2">
-                  Tokens have been transferred to your wallet and saved to the database.
+                  {syncError
+                    ? 'Tokens have been transferred to your wallet. Database sync is pending — your claim is safe on-chain.'
+                    : 'Tokens have been transferred to your wallet and saved to the database.'}
                 </p>
                 {claimTxHash && (
                   <a
