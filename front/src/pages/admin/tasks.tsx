@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE_URL = 'https://infov-aomq.onrender.com/api/v1';
+const API_BASE_URL = 'https://infolast.onrender.com/api/v1';
 
 interface Task {
   id: string;
