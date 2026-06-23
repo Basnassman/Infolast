@@ -118,6 +118,7 @@ export const calculateRemaining = (
 export const buildParticipantProfile = (
   schedule: VestingSchedule & {
     claimEvents: VestingClaimEvent[];
+    user?: { walletAddress: string };
   },
   classification: ParticipantClassification
 ): VestingParticipantProfile => {
@@ -138,7 +139,7 @@ export const buildParticipantProfile = (
   );
 
   return {
-    walletAddress: schedule.userId,
+    walletAddress: schedule.user?.walletAddress ?? schedule.userId,
     source: schedule.source,
     totalAllocatedWei: schedule.totalAllocatedWei,
     totalClaimedWei: schedule.totalClaimedWei,

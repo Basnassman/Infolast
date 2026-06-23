@@ -65,7 +65,7 @@ export const vestingService = {
     event: VestingEvent & { blockTimestamp?: Date }
   ): Promise<{ processed: boolean; scheduleId: string }> {
     const schedule = await vestingRepository.upsertSchedule({
-      walletAddress: event.walletAddress,
+      userId,
       source: VestingSource.PRESALE, // Default; can be refined with config
       totalAllocatedWei: event.amountWei,
     });
@@ -93,10 +93,8 @@ export const vestingService = {
     userId: string,
     event: VestingEvent & { blockTimestamp?: Date }
   ): Promise<{ processed: boolean; scheduleId?: string }> {
-    // Find the schedule for this user
-    const schedule = await vestingRepository.findByWallet(
-      event.walletAddress
-    );
+    // Find the schedule for this user by their id
+    const schedule = await vestingRepository.findByUserId(userId);
 
     if (!schedule) {
       logger.warn(
@@ -194,7 +192,7 @@ export const vestingService = {
     const events = await vestingRepository.findRecentClaims(limit);
 
     return events.map((event) => ({
-      walletAddress: event.vestingSchedule.userId,
+      walletAddress: event.vestingSchedule.user?.walletAddress ?? event.vestingSchedule.userId,
       amountWei: event.amountWei,
       txHash: event.txHash,
       blockNumber: event.blockNumber,
@@ -225,7 +223,7 @@ export const vestingService = {
     }
 
     // Create or find user
-    await userRepository.findOrCreate(normalizedWallet);
+    const user = await userRepository.findOrCreate(normalizedWallet);
 
     // Find schedule
     const schedule = await vestingRepository.findByWallet(normalizedWallet);
@@ -234,7 +232,7 @@ export const vestingService = {
       // Schedule doesn't exist yet — sync hasn't run or allocation hasn't happened
       // Create a minimal schedule so we can record the claim
       const newSchedule = await vestingRepository.upsertSchedule({
-        walletAddress: normalizedWallet,
+        userId: user.id,
         source: VestingSource.PRESALE,
         totalAllocatedWei: "0", // Will be updated by sync
       });

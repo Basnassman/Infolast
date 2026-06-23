@@ -18,14 +18,38 @@ export const vestingRepository = {
 
   /**
    * Find vesting schedule by user wallet address.
+   * Resolves wallet address → User.id before querying.
+   * Returns the schedule with user relation for wallet access.
    */
   async findByWallet(walletAddress: string) {
     const normalizedWallet = walletAddress.toLowerCase();
     return prisma.vestingSchedule.findFirst({
-      where: { userId: normalizedWallet },
+      where: {
+        user: { walletAddress: normalizedWallet },
+      },
       include: {
         claimEvents: {
           orderBy: { blockTimestamp: "desc" },
+        },
+        user: {
+          select: { walletAddress: true },
+        },
+      },
+    });
+  },
+
+  /**
+   * Find vesting schedule by User.id (cuid).
+   */
+  async findByUserId(userId: string) {
+    return prisma.vestingSchedule.findFirst({
+      where: { userId },
+      include: {
+        claimEvents: {
+          orderBy: { blockTimestamp: "desc" },
+        },
+        user: {
+          select: { walletAddress: true },
         },
       },
     });
@@ -49,17 +73,17 @@ export const vestingRepository = {
    * Create a new vesting schedule (from Allocated event).
    * Uses upsert for idempotency — if schedule already exists,
    * update the total allocated amount.
+   *
+   * @param userId - The User.id (cuid), NOT the wallet address.
    */
   async upsertSchedule(data: {
-    walletAddress: string;
+    userId: string;
     source: VestingSource;
     totalAllocatedWei: string;
   }) {
-    const normalizedWallet = data.walletAddress.toLowerCase();
-
-    // Check if schedule exists for this wallet
+    // Check if schedule exists for this user
     const existing = await prisma.vestingSchedule.findFirst({
-      where: { userId: normalizedWallet },
+      where: { userId: data.userId },
     });
 
     if (existing) {
@@ -75,7 +99,7 @@ export const vestingRepository = {
     // Create new schedule
     return prisma.vestingSchedule.create({
       data: {
-        userId: normalizedWallet,
+        userId: data.userId,
         source: data.source,
         totalAllocatedWei: data.totalAllocatedWei,
       },
@@ -218,6 +242,11 @@ export const vestingRepository = {
       include: {
         vestingSchedule: {
           select: { userId: true },
+          include: {
+            user: {
+              select: { walletAddress: true },
+            },
+          },
         },
       },
     });
