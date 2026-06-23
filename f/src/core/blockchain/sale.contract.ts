@@ -3,19 +3,48 @@ import { wallet, provider, config } from "@core/blockchain/provider";
 import SaleABI from "@core/abis/Sale";
 import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
-// ─── Read-only Contract ─────────────────────────────────────────────────────
+// ─── Lazy Contract Helpers ────────────────────────────────────────────────
 
-export const saleContractRead = new ethers.Contract(
-  config.sale!,
-  SaleABI,
-  provider
-);
+function requireSaleAddress(): string {
+  if (!config.sale) throw new ConfigurationError("SALE_ADDRESS env variable is not configured");
+  return config.sale;
+}
+
+// ─── Read-only Contract (lazy via Proxy) ───────────────────────────────────
+
+let _saleContractRead: ethers.Contract | null = null;
+
+function _getSaleContractRead(): ethers.Contract {
+  if (!_saleContractRead) {
+    _saleContractRead = new ethers.Contract(requireSaleAddress(), SaleABI, provider);
+  }
+  return _saleContractRead;
+}
+
+export const saleContractRead = new Proxy({} as ethers.Contract, {
+  get(_target, prop) {
+    return (_getSaleContractRead() as any)[prop];
+  },
+});
 
 // ─── Write Contract (requires admin wallet) ─────────────────────────────────
 
-export const saleContractWrite = wallet
-  ? new ethers.Contract(config.sale!, SaleABI, wallet)
-  : null;
+let _saleContractWrite: ethers.Contract | null = null;
+let _saleWriteInitialized = false;
+
+function _getSaleContractWrite(): ethers.Contract | null {
+  if (!wallet) return null;
+  if (!_saleWriteInitialized) {
+    _saleWriteInitialized = true;
+    _saleContractWrite = new ethers.Contract(requireSaleAddress(), SaleABI, wallet);
+  }
+  return _saleContractWrite;
+}
+
+export function getSaleContractWrite(): ethers.Contract | null {
+  return _getSaleContractWrite();
+}
+
 
 // ─── Sale Info ──────────────────────────────────────────────────────────────
 
@@ -80,8 +109,9 @@ export const getUserLastBuy = async (address: string): Promise<number> => {
 // ─── Buy Tokens ─────────────────────────────────────────────────────────────
 
 export const buyTokensETH = async (value: string): Promise<string> => {
-  if (!saleContractWrite) throw new ConfigurationError("Wallet not configured");
-  const tx = await saleContractWrite.buyETH({ value });
+  const contract = getSaleContractWrite();
+  if (!contract) throw new ConfigurationError("Wallet not configured");
+  const tx = await contract.buyETH({ value });
   return tx.hash;
 };
 
@@ -89,8 +119,9 @@ export const buyTokensERC20 = async (
   currency: string,
   amount: string
 ): Promise<string> => {
-  if (!saleContractWrite) throw new ConfigurationError("Wallet not configured");
-  const tx = await saleContractWrite.buyToken(currency, amount);
+  const contract = getSaleContractWrite();
+  if (!contract) throw new ConfigurationError("Wallet not configured");
+  const tx = await contract.buyToken(currency, amount);
   return tx.hash;
 };
 

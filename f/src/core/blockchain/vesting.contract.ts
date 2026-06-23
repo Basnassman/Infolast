@@ -3,19 +3,61 @@ import { wallet, provider, config } from "@core/blockchain/provider";
 import VestingABI from "@core/abis/Vesting";
 import { ConfigurationError } from "@core/errors/infrastructure/configuration.error";
 
-// ─── Read-only Contract ─────────────────────────────────────────────────────
+// ─── Lazy Contract Helpers ────────────────────────────────────────────────
 
-export const vestingContractRead = new ethers.Contract(
-  config.vesting!,
-  VestingABI,
-  provider
-);
+const VESTING_MISSING = "VESTING_ADDRESS env variable is not configured";
 
-// ─── Write Contract (requires admin wallet) ─────────────────────────────────
+function requireVestingAddress(): string {
+  if (!config.vesting) throw new ConfigurationError(VESTING_MISSING);
+  return config.vesting;
+}
 
-export const vestingContractWrite = wallet
-  ? new ethers.Contract(config.vesting!, VestingABI, wallet)
-  : null;
+// ─── Read-only Contract (lazy via Proxy) ───────────────────────────────────
+
+let _vestingContractRead: ethers.Contract | null = null;
+
+function _getVestingContractRead(): ethers.Contract {
+  if (!_vestingContractRead) {
+    _vestingContractRead = new ethers.Contract(
+      requireVestingAddress(),
+      VestingABI,
+      provider
+    );
+  }
+  return _vestingContractRead;
+}
+
+// Backward-compatible — triggers lazy init only when any property is accessed
+export const vestingContractRead = new Proxy({} as ethers.Contract, {
+  get(_target, prop, _receiver) {
+    return (_getVestingContractRead() as any)[prop];
+  },
+});
+
+// ─── Write Contract (requires admin wallet + vesting address) ──────────────
+// Kept as a nullable variable: null when wallet is missing.
+// Lazy: only created when first called (not at module load).
+
+let _vestingContractWrite: ethers.Contract | null = null;
+let _vestingWriteInitialized = false;
+
+function _getVestingContractWrite(): ethers.Contract | null {
+  if (!wallet) return null;
+  if (!_vestingWriteInitialized) {
+    _vestingWriteInitialized = true;
+    _vestingContractWrite = new ethers.Contract(
+      requireVestingAddress(),
+      VestingABI,
+      wallet
+    );
+  }
+  return _vestingContractWrite;
+}
+
+// Lazy write contract: evaluates lazily via getter only when accessed
+export function getVestingContractWrite(): ethers.Contract | null {
+  return _getVestingContractWrite();
+}
 
 // ─── Contract Info ──────────────────────────────────────────────────────────
 
@@ -140,19 +182,22 @@ export const getLatestBlockNumber = async (): Promise<number> => {
 // ─── Write Operations ───────────────────────────────────────────────────────
 
 export const claimVesting = async () => {
-  if (!vestingContractWrite) throw new ConfigurationError("Wallet not configured");
-  const tx = await vestingContractWrite.claim();
+  const contract = getVestingContractWrite();
+  if (!contract) throw new ConfigurationError("Wallet not configured");
+  const tx = await contract.claim();
   return tx.hash;
 };
 
 export const allocateVesting = async (user: string, amount: string) => {
-  if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
-  const tx = await vestingContractWrite.allocate(user, amount);
+  const contract = getVestingContractWrite();
+  if (!contract) throw new ConfigurationError("Admin wallet not configured");
+  const tx = await contract.allocate(user, amount);
   return tx.hash;
 };
 
 export const depositTokens = async (amount: string) => {
-  if (!vestingContractWrite) throw new ConfigurationError("Admin wallet not configured");
-  const tx = await vestingContractWrite.deposit(amount);
+  const contract = getVestingContractWrite();
+  if (!contract) throw new ConfigurationError("Admin wallet not configured");
+  const tx = await contract.deposit(amount);
   return tx.hash;
 };
