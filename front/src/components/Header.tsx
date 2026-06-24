@@ -30,8 +30,10 @@ export default function Header() {
             <Link href="/about" onClick={() => setOpen(false)} className="block hover:text-white">About</Link>
             <Link href="/services" onClick={() => setOpen(false)} className="block hover:text-white">Services</Link>
             <Link href="/vesting" onClick={() => setOpen(false)} className="block hover:text-white">Vesting</Link>
+            <Link href="/tasks" onClick={() => setOpen(false)} className="block hover:text-white">🎯 Tasks</Link>
             <Link href="/admin/review" onClick={() => setOpen(false)} className="block hover:text-white">Review</Link>
-            <Link href="/admin/tasks" onClick={() => setOpen(false)} className="block hover:text-white">Tasks</Link>
+            <Link href="/admin/tasks" onClick={() => setOpen(false)} className="block hover:text-white">Tasks (Admin)</Link>
+            <Link href="/admin/verification-tasks" onClick={() => setOpen(false)} className="block hover:text-white">Verification (Admin)</Link>
           </nav>
         </div>
       )}

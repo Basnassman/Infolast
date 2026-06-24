@@ -82,8 +82,10 @@ export const env = {
 
   // ── Telegram ──────────────────────────────────────────────────────────
   telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN,
-    groupId:  process.env.TELEGRAM_GROUP_ID,
+    botToken:      process.env.TELEGRAM_BOT_TOKEN,
+    botUsername:   process.env.TELEGRAM_BOT_USERNAME,
+    groupId:       process.env.TELEGRAM_GROUP_ID,
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
   },
 
   // ── Task Verification APIs ────────────────────────────────────────────

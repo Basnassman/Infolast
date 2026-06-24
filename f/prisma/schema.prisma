@@ -94,6 +94,35 @@ enum TaskPlatform {
 }
 
 // =====================================================
+// VERIFICATION DOMAIN
+// =====================================================
+
+enum VerificationPlatform {
+  TELEGRAM
+  X
+  YOUTUBE
+  DISCORD
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REVOKED
+}
+
+enum VerificationAction {
+  VERIFY
+  REVERIFY
+  REVOKE
+}
+
+enum VerificationResultStatus {
+  SUCCESS
+  FAILED
+}
+
+// =====================================================
 // USER DOMAIN
 // =====================================================
 
@@ -127,6 +156,11 @@ model User {
 
   audits    UserAuditLog[]
   userTasks UserTask[]
+
+  // Verification
+  platformAccounts   PlatformAccount[]
+  userVerifications  UserVerificationTask[]
+  verificationLogs   VerificationLog[]
 }
 
 model UserTag {
@@ -329,6 +363,86 @@ model UserTask {
   @@index([userId])
   @@index([taskId])
   @@index([status])
+}
+
+// =====================================================
+// VERIFICATION DOMAIN
+// =====================================================
+
+model PlatformAccount {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform        VerificationPlatform
+  platformUserId  String
+  platformUsername String?
+  verified        Boolean  @default(false)
+  linkedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, platform])
+  @@index([platform])
+  @@index([platformUserId])
+}
+
+model VerificationTask {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  platform          VerificationPlatform
+  channelUrl        String?
+  channelIdentifier String?
+  reward            Int      @default(0)
+  isActive          Boolean  @default(true)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userVerifications UserVerificationTask[]
+  logs              VerificationLog[]
+
+  @@index([platform])
+  @@index([isActive])
+}
+
+model UserVerificationTask {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationTaskId String
+  verificationTask   VerificationTask @relation(fields: [verificationTaskId], references: [id], onDelete: Cascade)
+  status             VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  lastCheckedAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  logs               VerificationLog[]
+
+  @@unique([userId, verificationTaskId])
+  @@index([userId])
+  @@index([verificationTaskId])
+  @@index([status])
+}
+
+model VerificationLog {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationTaskId String
+  verificationTask   VerificationTask @relation(fields: [verificationTaskId], references: [id], onDelete: Cascade)
+  userVerificationTaskId String?
+  userVerificationTask   UserVerificationTask? @relation(fields: [userVerificationTaskId], references: [id], onDelete: Cascade)
+  action             VerificationAction
+  result             VerificationResultStatus
+  details            Json?
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+  @@index([verificationTaskId])
+  @@index([userVerificationTaskId])
+  @@index([createdAt])
 }
 
 // =====================================================

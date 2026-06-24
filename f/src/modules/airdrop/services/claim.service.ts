@@ -6,6 +6,7 @@ import { ClaimStatusResult } from "@modules/airdrop/types/airdrop.types";
 import { ClaimNotEligibleError } from "@modules/airdrop/errors/claim-not-eligible.error";
 import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
 import { AirdropParticipantNotFoundError } from "@modules/airdrop/errors/airdrop-participant-not-found.error"
+import { verificationEligibilityService } from "@modules/verification/services/eligibility.service"
 
 export const getClaimStatus = async (walletAddress: string): Promise<ClaimStatusResult> => {
   const normalized = walletAddress.toLowerCase();
@@ -59,7 +60,16 @@ export const recordClaim = async (walletAddress: string, txHash: string) => {
   });
 
   if (!user) {
-  throw new UserNotFoundError(walletAddress);
+    throw new UserNotFoundError(walletAddress);
+  }
+
+  // ─── Verification Eligibility Check ──────────────────────────
+  const eligibility = await verificationEligibilityService.verifyBeforeClaim(user.id);
+  if (!eligibility.eligible) {
+    const failedPlatforms = eligibility.failedTasks.map(t => t.platform).join(", ");
+    throw new ClaimNotEligibleError(
+      `Verification failed for platforms: ${failedPlatforms}. Please re-verify your accounts.`
+    );
   }
 
   const airdropParticipant = await prisma.airdropParticipant.findUnique({

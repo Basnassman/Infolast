@@ -9,16 +9,12 @@ import { UserNotFoundError } from "@modules/user/errors/user-not-found.error";
  */
 
 export type UserClassification = {
+  userId: string;
   powerScore: number;
-
   totalSpentUsd: number;
-
   totalPurchasedWei: string;
-
   airdropPoints: number;
-
   riskLevel: RiskLevel | null;
-
   tags: string[];
 };
 

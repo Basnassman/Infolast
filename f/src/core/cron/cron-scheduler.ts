@@ -2,6 +2,7 @@ import { CronJob } from "cron";
 import { cronRebuild } from "../../modules/airdrop/workers/rebuild.worker";
 import { syncPurchaseEvents } from "@modules/purchase/sync/purchase.sync";
 import { syncVestingEvents } from "@modules/vesting/sync/vesting.sync";
+import { reverificationService } from "@modules/verification/services/reverification.service";
 import { logger } from "@core/logger/logger";
 
 /**
@@ -17,6 +18,7 @@ import { logger } from "@core/logger/logger";
 let merkleCronJob: CronJob | null = null;
 let purchaseSyncCronJob: CronJob | null = null;
 let vestingSyncCronJob: CronJob | null = null;
+let reverificationCronJob: CronJob | null = null;
 
 /**
  * Initialize cron jobs
@@ -110,6 +112,36 @@ export const initCronJobs = () => {
   );
 
   logger.info("[Cron] Vesting sync scheduled every 5 minutes");
+
+  // Reverification: Every 6 hours
+  reverificationCronJob = new CronJob(
+    "0 */6 * * *",
+    async () => {
+      logger.info("[Cron] Reverification sweep triggered");
+      try {
+        const result = await reverificationService.reverificationAll();
+        logger.info(
+          {
+            totalTasks: result.totalTasks,
+            results: result.results.map(r => ({
+              task: r.taskTitle,
+              platform: r.platform,
+              revoked: r.revoked,
+              verified: r.verified,
+            })),
+          },
+          "[Cron] Reverification sweep completed"
+        );
+      } catch (error: any) {
+        logger.error({ err: error }, "[Cron] Reverification sweep failed");
+      }
+    },
+    null,
+    true,
+    "UTC"
+  );
+
+  logger.info("[Cron] Reverification scheduled every 6 hours");
 };
 
 /**
@@ -124,6 +156,9 @@ export const stopCronJobs = () => {
   }
   if (vestingSyncCronJob) {
     vestingSyncCronJob.stop();
+  }
+  if (reverificationCronJob) {
+    reverificationCronJob.stop();
   }
   logger.info("[Cron] All jobs stopped");
 };
@@ -144,6 +179,10 @@ export const getCronStatus = () => {
     vestingSync: {
       isActive: vestingSyncCronJob?.isActive ?? false,
       nextRun: vestingSyncCronJob ? new Date(vestingSyncCronJob.nextDate().toString()) : null,
+    },
+    reverification: {
+      isActive: reverificationCronJob?.isActive ?? false,
+      nextRun: reverificationCronJob ? new Date(reverificationCronJob.nextDate().toString()) : null,
     },
   };
 };

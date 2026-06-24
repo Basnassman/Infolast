@@ -1,6 +1,7 @@
 import { VestingSource } from "@prisma/client";
 import { vestingRepository } from "@modules/vesting/repositories/vesting.repository";
 import { userRepository } from "@modules/user/repositories/user.repository";
+import { verificationEligibilityService } from "@modules/verification/services/eligibility.service";
 import {
   classifyParticipant,
   buildParticipantProfile,
@@ -214,6 +215,18 @@ export const vestingService = {
     amountWei: string
   ): Promise<{ created: boolean; scheduleId?: string }> {
     const normalizedWallet = walletAddress.toLowerCase();
+
+    // ─── Verification Eligibility Check ──────────────────────────
+    const existingUser = await userRepository.findByWallet(normalizedWallet);
+    if (existingUser) {
+      const eligibility = await verificationEligibilityService.verifyBeforeClaim(existingUser.id);
+      if (!eligibility.eligible) {
+        const failedPlatforms = eligibility.failedTasks.map(t => t.platform).join(", ");
+        throw new Error(
+          `Verification failed for platforms: ${failedPlatforms}. Please re-verify your accounts.`
+        );
+      }
+    }
 
     // Idempotency check
     const existing = await vestingRepository.findClaimByTxHash(txHash);
