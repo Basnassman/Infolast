@@ -59,7 +59,7 @@ export default function AdminVerificationTasksPage() {
       });
       if (!res.ok) { setIsAdmin(false); return; }
       const data = await res.json();
-      setIsAdmin(data.data?.isAuthorized || false);
+      setIsAdmin(data.data?.isAdmin || false);
     } catch { setIsAdmin(false); } finally { setCheckingRole(false); }
   };
 
@@ -77,7 +77,10 @@ export default function AdminVerificationTasksPage() {
     setLoading(true); setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/verification/tasks`);
-      if (!res.ok) throw new Error('Failed to fetch');
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error?.message || 'Failed to fetch');
+      }
       const data = await res.json();
       setTasks(Array.isArray(data.data) ? data.data : []);
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
@@ -109,7 +112,10 @@ export default function AdminVerificationTasksPage() {
   const handleToggle = async (id: string) => {
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/verification/tasks/${id}/toggle`, { method: 'PATCH' });
-      if (!res.ok) throw new Error('Failed to toggle');
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error?.message || 'Failed to toggle');
+      }
       fetchTasks();
     } catch (err: any) { setError(err.message); }
   };
@@ -159,7 +165,7 @@ export default function AdminVerificationTasksPage() {
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-2">⛔ Access Denied</p>
-          <p className="text-zinc-400">Admin role required</p>
+          <p className="text-zinc-400">Admin role required. Your wallet does not have the ADMIN role on the smart contract.</p>
         </div>
       </div>
     );
