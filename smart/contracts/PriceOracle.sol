@@ -215,54 +215,51 @@ contract PriceOracleV3 is AccessControl, Pausable {
 
     /// @notice Convert payment → token amount
     function quote(address currency, uint256 amount)
-        public
-        view
-        returns (uint256 tokens)
+    public
+    view
+    returns (uint256 tokens)
     {
-        Currency memory c = currencies[currency];
+    Currency memory c = currencies[currency];
 
-        if (!c.supported) revert PO__UnsupportedCurrency();
+    if (!c.supported) revert PO__UnsupportedCurrency();
 
-        // PATCH-P2: Stale price protection
-        if (block.timestamp - c.updatedAt > STALENESS_THRESHOLD) {
-            revert PO__StalePrice();
-        }
-
-        uint256 priceUsd = c.priceUsd;
-
-        // PATCH-P3: Use Chainlink if available
-        if (c.chainlinkFeed != address(0)) {
-            priceUsd = _getChainlinkPrice(c.chainlinkFeed);
-        }
-
-        return _calc(amount, priceUsd, c.decimals);
+    // التعديل هنا: نتجاهل فحص القديم إذا كان هناك Chainlink feed
+    if (c.chainlinkFeed == address(0) && block.timestamp - c.updatedAt > STALENESS_THRESHOLD) {
+        revert PO__StalePrice();
     }
 
-    /// @notice Reverse quote (tokens → required payment)
+    uint256 priceUsd = c.priceUsd;
+
+    if (c.chainlinkFeed != address(0)) {
+        priceUsd = _getChainlinkPrice(c.chainlinkFeed);
+    }
+
+    return _calc(amount, priceUsd, c.decimals);
+    }
+
     function quoteReverse(address currency, uint256 tokenAmount)
-        external
-        view
-        returns (uint256 payment)
+    external
+    view
+    returns (uint256 payment)
     {
-        Currency memory c = currencies[currency];
+    Currency memory c = currencies[currency];
 
-        if (!c.supported) revert PO__UnsupportedCurrency();
+    if (!c.supported) revert PO__UnsupportedCurrency();
 
-        // PATCH-P2: Stale price protection
-        if (block.timestamp - c.updatedAt > STALENESS_THRESHOLD) {
-            revert PO__StalePrice();
-        }
+    // التعديل هنا أيضاً
+    if (c.chainlinkFeed == address(0) && block.timestamp - c.updatedAt > STALENESS_THRESHOLD) {
+        revert PO__StalePrice();
+    }
 
-        uint256 priceUsd = c.priceUsd;
+    uint256 priceUsd = c.priceUsd;
 
-        // PATCH-P3: Use Chainlink if available
-        if (c.chainlinkFeed != address(0)) {
-            priceUsd = _getChainlinkPrice(c.chainlinkFeed);
-        }
+    if (c.chainlinkFeed != address(0)) {
+        priceUsd = _getChainlinkPrice(c.chainlinkFeed);
+    }
 
-        payment =
-            (tokenAmount * tokenPriceUsd * (10 ** c.decimals)) /
-            (priceUsd * 1e18);
+    payment =
+        (tokenAmount * tokenPriceUsd * (10 ** c.decimals)) /
+        (priceUsd * 1e18);
     }
 
     // ═════════════════════ FRONTEND HELPERS ═════════════════════
