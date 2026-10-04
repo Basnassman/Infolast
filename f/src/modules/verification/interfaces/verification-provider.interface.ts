@@ -21,17 +21,23 @@ export interface VerificationProvider {
    * Verify that a user meets the requirements for a specific task.
    *
    * @param context - Contains userId, taskId, platform details, and metadata
+   * @param canUseCache - When true, the provider may return a cached result
+   *   (normal verification). When false, the provider MUST query the platform
+   *   API live (reverification, claim gate, security-sensitive checks).
    * @returns VerificationResult with success/failure and details
    */
-  verify(context: VerifyContext): Promise<VerificationResult>;
+  verify(context: VerifyContext, canUseCache?: boolean): Promise<VerificationResult>;
 
   /**
    * Check if a user is currently a member of a channel/group.
-   * Used for periodic reverification.
+   * Used for periodic reverification (I.3). Always live-checks.
    *
-   * @param channelIdentifier - Platform-specific channel/group ID
+   * @param channelIdentifier - Platform-specific channel/group ID (optional in tests)
    * @param platformUserId - The user's platform-specific ID
    * @returns true if the user is still a valid member
    */
-  checkMembership(channelIdentifier: string, platformUserId: string): Promise<boolean>;
+  checkMembership(
+    channelIdentifier: string | undefined,
+    platformUserId: string
+  ): Promise<boolean>;
 }

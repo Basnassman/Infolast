@@ -22,6 +22,38 @@ export const userVerificationTaskRepository = {
     return prisma.userVerificationTask.findUnique({ where: { id } });
   },
 
+  /**
+   * Ensure a PENDING verification record exists for this user/task pair.
+   *
+   * Called by the verification entry points (worker + task auto-verify)
+   * BEFORE `verificationService.verifyUserTask()`, which fails closed when
+   * the required record is missing (I.5). Never downgrades an existing
+   * record: if the user already has one (e.g. VERIFIED), it is returned
+   * untouched.
+   */
+  async ensurePending(
+    userId: string,
+    verificationTaskId: string
+  ): Promise<UserVerificationTask> {
+    const existing = await this.findByUserAndTask(userId, verificationTaskId);
+    if (existing) return existing;
+
+    try {
+      return await this.create({
+        userId,
+        verificationTaskId,
+        status: VerificationStatus.PENDING,
+      });
+    } catch (err: any) {
+      // Unique constraint race (two concurrent requests) → read the winner.
+      if (err?.code === "P2002") {
+        const winner = await this.findByUserAndTask(userId, verificationTaskId);
+        if (winner) return winner;
+      }
+      throw err;
+    }
+  },
+
   async findByUserAndTask(
     userId: string,
     verificationTaskId: string

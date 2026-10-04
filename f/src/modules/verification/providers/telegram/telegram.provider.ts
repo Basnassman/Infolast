@@ -1,9 +1,9 @@
 import { VerificationPlatform } from "@prisma/client";
 import { VerificationProvider } from "../../interfaces/verification-provider.interface";
 import { VerifyContext, VerificationResult } from "../../types/verification.types";
-import { telegramClient } from "@core/telegram/telegram.client";
+import { telegramClient as telegramApiClient } from "@core/telegram/telegram.client";
 import { validateMemberStatus } from "@core/telegram/telegram.adapter";
-import { cacheService } from "@core/cache/cache.service";
+import { cacheService as coreCacheService } from "@core/cache/cache.service";
 import { verificationCacheKeys, VERIFICATION_CACHE_TTL } from "../../types/verification.types";
 import { logger } from "@core/logger/logger";
 
@@ -24,7 +24,18 @@ import { logger } from "@core/logger/logger";
 export class TelegramProvider implements VerificationProvider {
   readonly platform = VerificationPlatform.TELEGRAM;
 
-  async verify(context: VerifyContext): Promise<VerificationResult> {
+  /**
+   * Injectable dependencies.
+   * Production uses the real Telegram client and Redis cache; the test
+   * suite overrides these statics with fakes (no network / no Redis).
+   */
+  static telegramClient = telegramApiClient;
+  static cacheService = coreCacheService;
+
+  async verify(
+    context: VerifyContext,
+    canUseCache: boolean = true
+  ): Promise<VerificationResult> {
     const { channelIdentifier } = context;
 
     if (!channelIdentifier) {
@@ -54,14 +65,48 @@ export class TelegramProvider implements VerificationProvider {
       };
     }
 
-    // Check cache first
+    // Security-critical live check: never read from cache.
+    if (!canUseCache) {
+      logger.debug(
+        { userId: context.userId, channelIdentifier },
+        "[Telegram] Live membership check (cache bypassed)"
+      );
+      const response = await TelegramProvider.telegramClient.getChatMember(channelIdentifier, userIdNum);
+
+      if (!response.ok) {
+        logger.warn(
+          { userId: context.userId, channelIdentifier, description: response.description },
+          "[Telegram] getChatMember failed (live check)"
+        );
+        return {
+          success: false,
+          isMember: false,
+          error: response.description || "Failed to check Telegram membership",
+        };
+      }
+
+      const { isMember, status } = validateMemberStatus(response.result?.status);
+
+      return {
+        success: true,
+        isMember,
+        status: status ?? undefined,
+        details: {
+          channelIdentifier,
+          platformUserId,
+          chatMemberStatus: response.result?.status,
+        },
+      };
+    }
+
+    // Normal verification path: use cache when available.
     const cacheKey = verificationCacheKeys.memberCheck(
       this.platform,
       channelIdentifier,
       platformUserId
     );
 
-    const cached = await cacheService.get<VerificationResult>(cacheKey);
+    const cached = await TelegramProvider.cacheService.get<VerificationResult>(cacheKey);
     if (cached) {
       logger.debug(
         { userId: context.userId, channelIdentifier },
@@ -71,7 +116,7 @@ export class TelegramProvider implements VerificationProvider {
     }
 
     // Call Telegram API
-    const response = await telegramClient.getChatMember(channelIdentifier, userIdNum);
+    const response = await TelegramProvider.telegramClient.getChatMember(channelIdentifier, userIdNum);
 
     if (!response.ok) {
       logger.warn(
@@ -98,8 +143,8 @@ export class TelegramProvider implements VerificationProvider {
       },
     };
 
-    // Cache the result
-    await cacheService.set(cacheKey, result, VERIFICATION_CACHE_TTL.memberCheck);
+    // Cache the result (normal path only)
+    await TelegramProvider.cacheService.set(cacheKey, result, VERIFICATION_CACHE_TTL.memberCheck);
 
     logger.info(
       {
@@ -115,11 +160,17 @@ export class TelegramProvider implements VerificationProvider {
     return result;
   }
 
-  async checkMembership(channelIdentifier: string, platformUserId: string): Promise<boolean> {
+  async checkMembership(
+    channelIdentifier: string | undefined,
+    platformUserId: string
+  ): Promise<boolean> {
+    // Reverification (I.3): always live-check, never read from cache.
+    if (!channelIdentifier) return false;
+
     const userIdNum = parseInt(platformUserId, 10);
     if (isNaN(userIdNum)) return false;
 
-    const response = await telegramClient.getChatMember(channelIdentifier, userIdNum);
+    const response = await TelegramProvider.telegramClient.getChatMember(channelIdentifier, userIdNum);
     if (!response.ok) return false;
 
     const { isMember } = validateMemberStatus(response.result?.status);

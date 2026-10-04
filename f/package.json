@@ -9,7 +9,7 @@
     "build": "tsc --noCheck && tsc-alias",
     "typecheck": "tsc --noEmit --noCheck",
     "postinstall": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/run-tests.cjs"
   },
   "repository": {
     "type": "git",

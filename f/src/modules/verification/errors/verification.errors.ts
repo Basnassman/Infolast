@@ -90,19 +90,51 @@ export class ProviderAPIError extends VerificationError {
     super("PROVIDER_API_ERROR", `[${platform}] API error: ${detail}`);
     this.name = "ProviderAPIError";
   }
-}
-
-// ─── Eligibility Errors ──────────────────────────────────────────────────────
-
+}// ─── Eligibility Errors ──────────────────────────────────────────────────────
 export class NotEligibleError extends VerificationError {
   constructor(userId: string, reason: string) {
     super("NOT_ELIGIBLE", `User ${userId} is not eligible: ${reason}`);
     this.name = "NotEligibleError";
   }
+}// ─── Required Verification Errors ─────────────────────────────────────────────
+export class RequiredVerificationMissingError extends VerificationError {
+  constructor(userId: string, verificationTaskId: string) {
+    super(
+      "REQUIRED_VERIFICATION_MISSING",
+      `User ${userId} is missing required verification for task ${verificationTaskId}. Verification failed: NOT_VERIFIED.`
+    );
+    this.name = "RequiredVerificationMissingError";
+  }
+}
+
+export class TelegramIdentityMismatch extends VerificationError {
+  constructor(token: string, expectedTelegramUserId: string, actualTelegramUserId: string) {
+    super(
+      "TELEGRAM_IDENTITY_MISMATCH",
+      `Token bound to Telegram user ${expectedTelegramUserId} cannot be linked to Telegram user ${actualTelegramUserId} (identity mismatch)`
+    );
+    this.name = "TelegramIdentityMismatch";
+  }
+}
+
+export class DeepLinkTokenUserMismatchError extends VerificationError {
+  constructor(token: string, expectedUserId: string) {
+    super(
+      "DEEP_LINK_TOKEN_USER_MISMATCH",
+      `Token bound to user ${expectedUserId} cannot be consumed by a different user (user mismatch)`
+    );
+    this.name = "DeepLinkTokenUserMismatchError";
+  }
+}
+
+export class VerificationCounterError extends VerificationError {
+  constructor(userId: string, reason: string) {
+    super("VERIFICATION_COUNTER_ERROR", `Verification re-verification counter error for user ${userId}: ${reason}`);
+    this.name = "VerificationCounterError";
+  }
 }
 
 // ─── Rate Limit Errors ───────────────────────────────────────────────────────
-
 export class VerificationRateLimitError extends VerificationError {
   constructor(userId: string) {
     super("VERIFICATION_RATE_LIMIT", `Rate limit exceeded for user ${userId}`);

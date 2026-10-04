@@ -5,6 +5,7 @@ import { taskEventEmitter } from "../events/task.events";
 import { analyzeFraudPatterns } from "@modules/user/fraud/fraud-detector.service";
 import { verificationService } from "@modules/verification/services/verification.service";
 import { verificationTaskRepository } from "@modules/verification/repositories/verification-task.repository";
+import { userVerificationTaskRepository } from "@modules/verification/repositories/user-verification-task.repository";
 import { platformAccountRepository } from "@modules/verification/repositories/platform-account.repository";
 
 import { Task, TaskStatus, VerificationPlatform } from "@prisma/client";
@@ -101,6 +102,15 @@ export const taskService = {
 
         if (verificationTasks.length > 0) {
           try {
+            // Telegram verification integration (I.5): ensure the required
+            // verification record exists (PENDING) before requesting the
+            // live verification — verifyUserTask fails closed when the
+            // record is missing. No task definition/reward logic touched.
+            await userVerificationTaskRepository.ensurePending(
+              user.id,
+              verificationTasks[0].id
+            );
+
             const vResult = await verificationService.verifyUserTask(
               user.id,
               verificationTasks[0].id

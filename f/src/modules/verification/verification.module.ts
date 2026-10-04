@@ -24,6 +24,7 @@
 export { verificationService } from "./services/verification.service";
 export { verificationEligibilityService } from "./services/eligibility.service";
 export { accountLinkingService } from "./services/account-linking.service";
+export { verificationTokenService } from "./services/verification.token.service";
 export { reverificationService } from "./services/reverification.service";
 
 // ─── Providers ───────────────────────────────────────────────────────────────

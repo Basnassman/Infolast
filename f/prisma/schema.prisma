@@ -382,6 +382,7 @@ model PlatformAccount {
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, platform])
+  @@unique([platform, platformUserId])
   @@index([platform])
   @@index([platformUserId])
 }

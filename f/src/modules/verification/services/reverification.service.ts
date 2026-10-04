@@ -1,8 +1,8 @@
 import { prisma } from "@core/db/prisma";
 import { VerificationStatus } from "@prisma/client";
-import { userVerificationTaskRepository } from "../repositories/user-verification-task.repository";
-import { verificationTaskRepository } from "../repositories/verification-task.repository";
-import { verificationService } from "./verification.service";
+import { userVerificationTaskRepository as coreUserVerificationTaskRepository } from "../repositories/user-verification-task.repository";
+import { verificationTaskRepository as coreVerificationTaskRepository } from "../repositories/verification-task.repository";
+import { verificationService as coreVerificationService } from "./verification.service";
 import { ReverificationResult, ReverificationBatchResult } from "../types/verification.types";
 import { logger } from "@core/logger/logger";
 
@@ -24,8 +24,14 @@ import { logger } from "@core/logger/logger";
  * 1. Cron job (periodic reverification)
  * 2. Before claim (pre-claim check)
  * 3. Before vesting release
+ *
+ * Dependencies are declared as properties so tests can swap them for fakes.
  */
 export const reverificationService = {
+  userVerificationTaskRepository: coreUserVerificationTaskRepository,
+  verificationTaskRepository: coreVerificationTaskRepository,
+  verificationService: coreVerificationService,
+
   /**
    * Reverify all verified users for a specific verification task.
    *
@@ -34,7 +40,7 @@ export const reverificationService = {
   async reverificationBatch(
     verificationTaskId: string
   ): Promise<ReverificationBatchResult> {
-    const allVerified = await userVerificationTaskRepository.findAllVerified();
+    const allVerified = await this.userVerificationTaskRepository.findAllVerified();
     const targetVerifications = allVerified.filter(
       (uv) => uv.verificationTaskId === verificationTaskId
     );
@@ -54,7 +60,7 @@ export const reverificationService = {
 
     for (const uv of targetVerifications) {
       try {
-        const result = await verificationService.reverificationCheck(
+        const result = await this.verificationService.reverificationCheck(
           uv.userId,
           uv.verificationTaskId
         );
@@ -124,7 +130,7 @@ export const reverificationService = {
     totalTasks: number;
     results: Array<{ taskTitle: string; platform: string; revoked: number; verified: number }>;
   }> {
-    const activeTasks = await verificationTaskRepository.findActive();
+    const activeTasks = await this.verificationTaskRepository.findActive();
 
     logger.info(
       { totalTasks: activeTasks.length },

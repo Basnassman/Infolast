@@ -1,6 +1,7 @@
 import { Worker, Job } from "bullmq";
 import { redis } from "@core/cache/redis";
 import { verificationService } from "../services/verification.service";
+import { userVerificationTaskRepository } from "../repositories/user-verification-task.repository";
 import { VerificationJobData } from "../queues/verification.queue";
 import { logger } from "@core/logger/logger";
 
@@ -29,6 +30,14 @@ export const verificationWorker = new Worker(
     );
 
     try {
+      // I.5: ensure the required verification record exists (PENDING) before
+      // running the live check — verifyUserTask fails closed on a missing
+      // record and never fabricates VERIFIED.
+      await userVerificationTaskRepository.ensurePending(
+        userId,
+        verificationTaskId
+      );
+
       const result = await verificationService.verifyUserTask(
         userId,
         verificationTaskId

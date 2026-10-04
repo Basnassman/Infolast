@@ -42,11 +42,8 @@ export interface BulkEligibilityCheckResult {
 
 // ─── Account Linking Types ───────────────────────────────────────────────────
 
-export interface DeepLinkToken {
-  walletAddress: string;
-  platform: VerificationPlatform;
-  createdAt: number;
-}
+// Note: deep-link token records live in verification.token.service.ts and are
+// bound to the real User.id (never a wallet address).
 
 export interface LinkAccountResult {
   success: boolean;
@@ -83,9 +80,6 @@ export const verificationCacheKeys = {
 
   eligibility: (userId: string) =>
     `verification:eligibility:${userId}`,
-
-  deepLinkToken: (token: string) =>
-    `verification:deeplink:${token}`,
 
   rateLimit: (userId: string) =>
     `verification:ratelimit:${userId}`,

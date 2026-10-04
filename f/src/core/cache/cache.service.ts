@@ -12,12 +12,35 @@ export const cacheService = {
       try {
         return JSON.parse(value) as T;
       } catch {
-        // بيانات تالفة في الـ cache - نتجاهلها ونرجع null
+        // corrupted cache data - ignore and return null
         return null;
       }
     } catch (error) {
-      // Redis غير متاح - نتجاهل الـ cache ونكمل من الـ DB
+      // Redis unavailable - bypass cache and continue from DB
       logger.error({ key, err: error }, "[Cache] get failed, bypassing cache");
+      return null;
+    }
+  },
+
+  /**
+   * Atomic read-and-delete (Redis GETDEL semantics).
+   *
+   * Implemented as a single Lua EVAL so the read and the delete can never
+   * be interleaved by another client — two concurrent callers can never
+   * both obtain the value. Used by the deep-link token service for
+   * single-use consumption (I.2).
+   *
+   * Returns the raw JSON string (or null) so callers can cast it.
+   * On Redis failure returns null → callers fail closed.
+   */
+  async getAndDel(key: string): Promise<string | null> {
+    try {
+      const script =
+        "local v = redis.call('GET', KEYS[1]); if v then redis.call('DEL', KEYS[1]) end; return v";
+      const value = (await (redis as any).eval(script, 1, key)) as string | null;
+      return typeof value === "string" ? value : null;
+    } catch (error) {
+      logger.error({ key, err: error }, "[Cache] getAndDel failed, bypassing cache");
       return null;
     }
   },
@@ -58,7 +81,7 @@ export const cacheService = {
   },
 
   async remember<T>(key: string, ttlSeconds: number, callback: () => Promise<T>): Promise<T> {
-    const cached = await this.get<T>(key);
+    const cached = await this.get(key) as T | null;
     if (cached !== null) return cached;
     const value = await callback();
     await this.set(key, value, ttlSeconds); // لن يرمي خطأ حتى لو Redis فشل

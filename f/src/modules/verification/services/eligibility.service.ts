@@ -1,9 +1,9 @@
 import { prisma } from "@core/db/prisma";
 import { VerificationPlatform, VerificationStatus } from "@prisma/client";
-import { verificationService } from "./verification.service";
-import { verificationTaskRepository } from "../repositories/verification-task.repository";
-import { userVerificationTaskRepository } from "../repositories/user-verification-task.repository";
-import { cacheService } from "@core/cache/cache.service";
+import { verificationService as coreVerificationService } from "./verification.service";
+import { verificationTaskRepository as coreVerificationTaskRepository } from "../repositories/verification-task.repository";
+import { userVerificationTaskRepository as coreUserVerificationTaskRepository } from "../repositories/user-verification-task.repository";
+import { cacheService as coreCacheService } from "@core/cache/cache.service";
 import { verificationCacheKeys, VERIFICATION_CACHE_TTL } from "../types/verification.types";
 import { logger } from "@core/logger/logger";
 
@@ -23,8 +23,15 @@ import { logger } from "@core/logger/logger";
  *
  *   const result = await verificationEligibilityService.checkEligibility(userId);
  *   if (!result.eligible) { reject claim; }
+ *
+ * Dependencies are declared as properties so tests can swap them for fakes.
  */
 export const verificationEligibilityService = {
+  verificationTaskRepository: coreVerificationTaskRepository,
+  userVerificationTaskRepository: coreUserVerificationTaskRepository,
+  verificationService: coreVerificationService,
+  cacheService: coreCacheService,
+
   /**
    * Check if a user is fully eligible across all verified verification tasks.
    *
@@ -37,13 +44,13 @@ export const verificationEligibilityService = {
   async checkEligibility(
     userId: string
   ): Promise<{ eligible: boolean; failedTasks: string[] }> {
-    // Check cache first
+    // Check cache first (normal, non-security-critical path — cache allowed)
     const cacheKey = verificationCacheKeys.eligibility(userId);
-    const cached = await cacheService.get<{ eligible: boolean; failedTasks: string[] }>(cacheKey);
+    const cached = await this.cacheService.get<{ eligible: boolean; failedTasks: string[] }>(cacheKey);
     if (cached) return cached;
 
     // Get all active verification tasks
-    const activeTasks = await verificationTaskRepository.findActive();
+    const activeTasks = await this.verificationTaskRepository.findActive();
 
     if (activeTasks.length === 0) {
       // No verification tasks configured → everyone is eligible
@@ -51,7 +58,7 @@ export const verificationEligibilityService = {
     }
 
     // Get user's verification statuses
-    const userVerifications = await userVerificationTaskRepository.findByUser(userId);
+    const userVerifications = await this.userVerificationTaskRepository.findByUser(userId);
     const verificationMap = new Map(
       userVerifications.map((uv) => [uv.verificationTaskId, uv.status])
     );
@@ -76,7 +83,7 @@ export const verificationEligibilityService = {
     };
 
     // Cache the result
-    await cacheService.set(cacheKey, result, VERIFICATION_CACHE_TTL.eligibility);
+    await this.cacheService.set(cacheKey, result, VERIFICATION_CACHE_TTL.eligibility);
 
     return result;
   },
@@ -95,7 +102,7 @@ export const verificationEligibilityService = {
   async verifyBeforeClaim(
     userId: string
   ): Promise<{ eligible: boolean; failedTasks: Array<{ taskId: string; title: string; platform: VerificationPlatform }> }> {
-    const activeTasks = await verificationTaskRepository.findActive();
+    const activeTasks = await this.verificationTaskRepository.findActive();
 
     if (activeTasks.length === 0) {
       return { eligible: true, failedTasks: [] };
@@ -104,17 +111,25 @@ export const verificationEligibilityService = {
     const failedTasks: Array<{ taskId: string; title: string; platform: VerificationPlatform }> = [];
 
     for (const task of activeTasks) {
-      // Skip tasks the user hasn't verified for yet
-      const existing = await userVerificationTaskRepository.findByUserAndTask(userId, task.id);
+      // Enforce required verification (I.5): a missing verification record
+      // for a required task must NOT be silently skipped. Record it as failed
+      // so the claim gate blocks (missing → NOT_VERIFIED, never eligible).
+      const existing = await this.userVerificationTaskRepository.findByUserAndTask(userId, task.id);
       if (!existing || existing.status !== VerificationStatus.VERIFIED) {
-        // If the task requires verification and user hasn't done it, skip
-        // (they shouldn't be at the claim stage without prior verification)
+        // If the task requires verification and the user hasn't done it,
+        // do NOT skip — record it as failed so the gate blocks the claim.
+        failedTasks.push({
+          taskId: task.id,
+          title: task.title,
+          platform: task.platform,
+        });
         continue;
       }
 
-      // Perform live reverification
+      // Perform live reverification (I.3/I.4): no cache, verify against
+      // the Telegram API for real.
       try {
-        const result = await verificationService.verifyUserTask(userId, task.id);
+        const result = await this.verificationService.verifyUserTask(userId, task.id, false);
 
         if (result.status !== VerificationStatus.VERIFIED) {
           failedTasks.push({
@@ -138,7 +153,7 @@ export const verificationEligibilityService = {
     }
 
     // Invalidate cache after live check
-    await cacheService.del(verificationCacheKeys.eligibility(userId));
+    await this.cacheService.del(verificationCacheKeys.eligibility(userId));
 
     return {
       eligible: failedTasks.length === 0,
@@ -155,8 +170,8 @@ export const verificationEligibilityService = {
     userId: string,
     platform: VerificationPlatform
   ): Promise<{ eligible: boolean; verifiedCount: number; requiredCount: number }> {
-    const activeTasks = await verificationTaskRepository.findActiveByPlatform(platform);
-    const verifiedCount = await userVerificationTaskRepository.countVerifiedByUserAndPlatform(
+    const activeTasks = await this.verificationTaskRepository.findActiveByPlatform(platform);
+    const verifiedCount = await this.userVerificationTaskRepository.countVerifiedByUserAndPlatform(
       userId,
       platform
     );
