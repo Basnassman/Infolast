@@ -9,12 +9,12 @@ async function main(): Promise<void> {
   }
 
   // ─── العناوين النهائية ──────────────────────────────────────────────
-  const timelockAddress = "0x58bc68c09f0cD742Dc6c037283A9a4dc12C0cf7d";
-  const oracleAddress   = "0x1bBb37E4B24BC0a361daB4617905A968FC4430b9";
-  const tokenAddress    = "0x3a1523D2ba093446457c037928601D789749EeaF";
-  const vestingAddress  = "0x14B214B4591d48bE94FB7F5D52e704A5113DfE11";
-  const airdropAddress  = "0x474C3a1CbD03d58FAFCeAD88A93806A9b0617ed5";
-  const saleAddress     = "0x0cc202dF8ACe32375cbCf02c6aC1896362cD60A4";
+  const timelockAddress = "0x4d6D868DeDf8a7C4b64b0AD3787bFb18B4E88D2C";
+  const oracleAddress   = "0xB3F5f8734B56231D3555c2d06D73D1F47f2F9bba";
+  const tokenAddress    = "0xfFD230D537d5C3EC22cEFb7F0C3a50fAde919f13";
+  const vestingAddress  = "0x55a4471d3ADAdAf6EeAa0Ea63153337653193eaC";
+  const airdropAddress  = "0x445B458bdA0Fd4a9CF035a83aD8DC55e49F79347";
+  const saleAddress     = "0xF6629F2f1C844318aE181b3A79bAD2380967E1be";
 
   const deployerAddress = "0x54FdC4531400dAA82C00B68c5c91dB327Abdf15c";
   const TREASURY_WALLET = deployerAddress;

@@ -12,8 +12,8 @@ async function main(): Promise<void> {
   console.log("========================================");
 
   // ─── CONFIG ─────────────────────────────────────────────────────────────
-  const TOKEN_NAME = "Token For";
-  const TOKEN_SYMBOL = "For";
+  const TOKEN_NAME = "Token azaam";
+  const TOKEN_SYMBOL = "azaam";
   const GOVERNANCE_MULTISIG = "0x54FdC4531400dAA82C00B68c5c91dB327Abdf15c";
   const TREASURY_WALLET = "0x54FdC4531400dAA82C00B68c5c91dB327Abdf15c";
 
