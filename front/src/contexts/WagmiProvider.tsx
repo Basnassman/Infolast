@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit';
 import { sepolia, mainnet } from 'wagmi/chains';
 import { NETWORKS } from '@/config/contracts';
 
@@ -35,7 +35,7 @@ export function WagmiContextProvider({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
+        <RainbowKitProvider theme={darkTheme()}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
