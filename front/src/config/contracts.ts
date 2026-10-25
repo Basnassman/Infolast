@@ -3,7 +3,7 @@ import { sepolia, mainnet } from 'wagmi/chains';
 export type NetworkType = 'sepolia' | 'mainnet';
 
 // ─── RPC من .env ─────────────────────────────────────────────────────────
-const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || 'https://ethereum-sepolia.core.chainstack.com/892a28be8ff030c1544ff6eaf9c6ef0f';
+const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || 'https://ethereum-sepolia.core.chainstack.com/66bb0b640016653173f8d17ff2e94dc1';
 const MAINNET_RPC = process.env.NEXT_PUBLIC_MAINNET_RPC || 'https://eth.llamarpc.com';
 
 export const NETWORKS = {
