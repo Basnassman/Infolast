@@ -1,5 +1,6 @@
 import { prisma } from "@core/db/prisma";
-import { DistributionType, MerkleJobStatus } from "@prisma/client";
+import { DistributionType, MerkleJobStatus, UserStatus } from "@prisma/client";
+import { logger } from "@core/logger/logger";
 import { recalculateAllocations } from "@modules/airdrop/services/allocation.service";
 import { getEligibleParticipants } from "@modules/airdrop/services/participant.service";
 import { buildMerkleTree, AirdropEntry } from "@modules/airdrop/merkle/tree.service";
@@ -8,6 +9,56 @@ import { isRebuildNeeded } from "@modules/airdrop/services/rebuild-check.service
 import { createMerkleRoot, updateMerkleRootTxHash } from "@modules/airdrop/repositories/merkle-root.repository";
 import { saveMerkleProofs } from "@modules/airdrop/repositories/merkle-proof.repository";
 import { env } from "@core/config/env";
+
+/**
+ * Counts at every eligibility stage (no wallet addresses — privacy safe).
+ * Used to distinguish "there are genuinely no participants" from
+ * "something upstream (points / eligibility / sync) is broken".
+ */
+export interface EligibilityDiagnostics {
+  totalParticipants: number;
+  activeParticipants: number;
+  flaggedEligible: number;
+  withPoints: number;
+  withNonZeroAllocation: number;
+}
+
+const countEligibilityStages = async (): Promise<EligibilityDiagnostics> => {
+  const activeUser = { user: { status: UserStatus.ACTIVE } };
+
+  const [
+    totalParticipants,
+    activeParticipants,
+    flaggedEligible,
+    withPoints,
+    withNonZeroAllocation,
+  ] = await Promise.all([
+    prisma.airdropParticipant.count(),
+    prisma.airdropParticipant.count({ where: activeUser }),
+    prisma.airdropParticipant.count({
+      where: { ...activeUser, isEligible: true },
+    }),
+    prisma.airdropParticipant.count({
+      where: { ...activeUser, isEligible: true, points: { gt: 0 } },
+    }),
+    prisma.airdropParticipant.count({
+      where: {
+        ...activeUser,
+        isEligible: true,
+        points: { gt: 0 },
+        allocationWei: { not: "0" },
+      },
+    }),
+  ]);
+
+  return {
+    totalParticipants,
+    activeParticipants,
+    flaggedEligible,
+    withPoints,
+    withNonZeroAllocation,
+  };
+};
 
 export interface RebuildResult {
   success: boolean;
@@ -96,14 +147,57 @@ export const rebuildAndSync = async (): Promise<RebuildResult> => {
 
   try {
     // 1️⃣ recalculate allocations
-    await recalculateAllocations();
+    const recalculation = await recalculateAllocations();
 
     // 2️⃣ fetch participants
-    const participants = await getEligibleParticipants();
+    const candidates = await getEligibleParticipants();
+
+    // Points below the allocation rate produce a zero allocation; those
+    // leaves must never reach the Merkle tree.
+    const participants = candidates.filter((participant) => {
+      try {
+        return BigInt(participant.allocationWei) > 0n;
+      } catch {
+        return false;
+      }
+    });
+
+    const droppedZeroAllocation = candidates.length - participants.length;
 
     if (participants.length === 0) {
-      throw new Error("No eligible participants found");
+      const diagnostics = await countEligibilityStages();
+
+      logger.error(
+        { diagnostics, recalculation, droppedZeroAllocation },
+        "[Merkle] No eligible participants — eligibility stage diagnostics"
+      );
+
+      throw new Error(
+        "No eligible participants found " +
+          `(participants=${diagnostics.totalParticipants}, ` +
+          `active=${diagnostics.activeParticipants}, ` +
+          `flaggedEligible=${diagnostics.flaggedEligible}, ` +
+          `withPoints=${diagnostics.withPoints}, ` +
+          `withAllocation=${diagnostics.withNonZeroAllocation}). ` +
+          "See the [Merkle] diagnostics log entry for the failing stage."
+      );
     }
+
+    if (droppedZeroAllocation > 0) {
+      logger.warn(
+        { droppedZeroAllocation, eligible: participants.length },
+        "[Merkle] Skipped participants with a zero allocation"
+      );
+    }
+
+    logger.info(
+      {
+        eligible: participants.length,
+        droppedZeroAllocation,
+        totalAllocationWei: recalculation.totalAmountWei,
+      },
+      "[Merkle] Building snapshot"
+    );
 
     // 3️⃣ build snapshot ✅ (مُضمَّن الآن في نفس الملف)
     const snapshot = buildMerkleSnapshot(participants);

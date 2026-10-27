@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://infolast.onrender.com/api/v1';
+import { API_BASE_URL } from '@/config/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

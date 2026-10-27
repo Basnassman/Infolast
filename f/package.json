@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "ts-node -r tsconfig-paths/register src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc --noCheck && tsc-alias",
-    "typecheck": "tsc --noEmit --noCheck",
+    "build": "tsc && tsc-alias",
+    "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
-    "test": "node scripts/run-tests.cjs"
+    "test": "node scripts/run-tests.cjs",
+    "verify:chain": "ts-node -r tsconfig-paths/register scripts/verify-chain.ts"
   },
   "repository": {
     "type": "git",

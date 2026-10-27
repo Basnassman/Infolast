@@ -24,9 +24,13 @@ const testFiles = [
   "src/modules/verification/__tests__/verification.service.test.ts",
   "src/modules/verification/__tests__/eligibility.service.test.ts",
   "src/modules/verification/__tests__/reverification.service.test.ts",
+  // Blockchain indexer + CORS regressions
+  "src/core/blockchain/__tests__/sync-utils.test.ts",
+  "src/core/blockchain/__tests__/rpc-errors.test.ts",
+  "src/core/security/__tests__/origin.test.ts",
 ].map((f) => path.resolve(projectRoot, f));
 
-console.log(`[TestRunner] Running ${testFiles.length} verification test file(s)...\n`);
+console.log(`[TestRunner] Running ${testFiles.length} test file(s)...\n`);
 
 const result = spawnSync(process.execPath, [
   "-r", path.resolve(projectRoot, "scripts", "test-preload.cjs"),

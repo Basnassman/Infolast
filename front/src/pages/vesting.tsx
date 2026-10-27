@@ -3,14 +3,9 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { formatUnits, type Hash } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CURRENT_CONTRACTS } from '@/config/contracts';
+import { CURRENT_CONTRACTS, isSepoliaChain } from '@/config/contracts';
 import { VESTING_ABI } from '@/config/abis';
-
-// ─── Backend API Configuration ────────────────────────────────────────────────
-// TODO: ضع هنا عنوان الـ Backend API الخاص بك
-// مثال: const API_BASE_URL = 'https://api.yourproject.com';
-// أو: const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://infolast-l5j6.onrender.com/api/v1';
+import { apiUrl } from '@/config/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18, fractionDigits = 2): string {
@@ -120,7 +115,7 @@ function computeStages(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function VestingPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { openConnectModal } = useConnectModal();
 
   const [claimTxHash, setClaimTxHash] = useState<Hash | null>(null);
@@ -262,7 +257,7 @@ export default function VestingPage() {
   // ── Fetch vesting profile from backend ────────────────────────────────────
   const fetchProfile = async (wallet: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/vesting/status/${wallet}`);
+      const res = await fetch(apiUrl(`/vesting/status/${wallet}`));
       if (res.ok) {
         const data = await res.json();
         setProfile(data.data);
@@ -294,7 +289,7 @@ export default function VestingPage() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/vesting/claim`, {
+        const response = await fetch(apiUrl('/vesting/claim'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -390,6 +385,13 @@ export default function VestingPage() {
       openConnectModal?.();
       return;
     }
+
+    // Writes must happen on Sepolia only.
+    if (!isSepoliaChain(chainId)) {
+      setClaimError('Please switch your wallet to the Sepolia Testnet network.');
+      return;
+    }
+
     setClaimError(null);
     setClaimSuccess(false);
     setClaimOnChainSuccess(false);

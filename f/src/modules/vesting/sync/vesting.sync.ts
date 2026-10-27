@@ -1,271 +1,88 @@
 import { logger } from "@core/logger/logger";
-import { provider } from "@core/blockchain/provider";
+import { env } from "@core/config/env";
 import {
   getPastAllocations,
   getPastClaims,
-  getLatestBlockNumber,
   AllocatedEvent,
   ClaimedEvent,
 } from "@core/blockchain/vesting.contract";
-import { syncStateRepository, SYNC_KEYS } from "@modules/purchase/repositories/sync-state.repository";
+import {
+  resolveBlockTimestamps,
+  runEventSync,
+  type BatchOutcome,
+} from "@core/blockchain/sync-engine";
+import {
+  syncStateRepository,
+  SYNC_KEYS,
+} from "@modules/purchase/repositories/sync-state.repository";
 import { vestingService } from "@modules/vesting/services/vesting.service";
-import { VestingSyncError } from "@modules/vesting/errors/vesting-sync.error";
-import { VestingSyncResult, VestingEvent } from "@modules/vesting/types/vesting.types";
-import { retry } from "@core/blockchain/retry.service";
+import {
+  VestingSyncResult,
+  VestingEvent,
+} from "@modules/vesting/types/vesting.types";
 
 /**
  * =====================================================
  * VESTING SYNC LAYER (Indexer)
  * =====================================================
  *
- * Implements the Indexer Pattern:
- *   Blockchain → Events → Mapping → Persistence → Checkpoint
+ * Flow:
+ *   Blockchain → Allocated/Claimed events → Mapping → Persistence → Checkpoint
  *
- * - Reads Allocated and Claimed events from Vesting contract
- * - Maps raw events to unified VestingEvent type
- * - Persists via service (idempotent via txHash)
- * - Tracks checkpoint in SyncState
+ * Shares the resumable engine with the Purchase sync, so it inherits:
+ * resumable checkpoints, adaptive block ranges, exponential backoff and
+ * "provider plan limit" clamping with an explicit history gap.
  *
- * Designed for fault tolerance:
- *   1. Resumable from last checkpoint
- *   2. RPC failure recovery via retry
- *   3. Idempotent processing (txHash uniqueness)
- *   4. Batch processing for large ranges
+ * IMPORTANT: a Claimed event with no VestingSchedule is not an error —
+ * vestingService skips it (returns processed: false). That is counted as a
+ * skip, not a failure, so it cannot block the checkpoint.
  */
-
-// ─── Configuration ──────────────────────────────────────────────────────────
 
 const SYNC_CONFIG = {
-  /** Max blocks per RPC query batch */
-  BATCH_SIZE: 5_000,
-  /** Max retry attempts for RPC calls */
-  MAX_RETRIES: 3,
-  /** Delay between retries (ms) */
-  RETRY_DELAY_MS: 2_000,
+  label: "Vesting sync",
+  startBlockEnvName: "VESTING_START_BLOCK",
+  stateKey: SYNC_KEYS.VESTING_LAST_BLOCK,
+  gapKey: SYNC_KEYS.VESTING_SYNC_GAP,
 } as const;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Event Fetching ────────────────────────────────────────────────────────
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-// ─── Core Sync ──────────────────────────────────────────────────────────────
-
-/**
- * Sync vesting events from blockchain.
- *
- * Flow:
- *   1. Read last processed block from SyncState
- *   2. Get current chain block
- *   3. Query Allocated + Claimed events in batches
- *   4. Process each event (idempotent)
- *   5. Update checkpoint after each batch
- *
- * Safe to run multiple times — idempotent by design.
- */
-export const syncVestingEvents = async (): Promise<VestingSyncResult> => {
-  const startTime = Date.now();
-  let totalEvents = 0;
-  let allocatedEvents = 0;
-  let claimedEvents = 0;
-  let errors = 0;
-
-  // ─── Step 1: Get checkpoint ──────────────────────────────────
-  const lastProcessedBlock = await syncStateRepository.getLastBlock(
-    SYNC_KEYS.VESTING_LAST_BLOCK
-  );
-
-  const currentBlock = await retry(
-    () => getLatestBlockNumber(),
-    SYNC_CONFIG.MAX_RETRIES,
-    SYNC_CONFIG.RETRY_DELAY_MS
-  );
-
-  if (lastProcessedBlock >= currentBlock) {
-    logger.info(
-      { lastProcessedBlock, currentBlock },
-      "Vesting sync: no new blocks to process"
-    );
-    return {
-      fromBlock: lastProcessedBlock,
-      toBlock: currentBlock,
-      totalEvents: 0,
-      allocatedEvents: 0,
-      claimedEvents: 0,
-      errors: 0,
-      duration: Date.now() - startTime,
-    };
-  }
-
-  const fromBlock = lastProcessedBlock + 1;
-  const toBlock = currentBlock;
-
-  logger.info(
-    { fromBlock, toBlock, diff: toBlock - fromBlock },
-    "Vesting sync: starting"
-  );
-
-  // ─── Step 2: Process in batches ──────────────────────────────
-  let batchFrom = fromBlock;
-
-  while (batchFrom <= toBlock) {
-    const batchTo = Math.min(
-      batchFrom + SYNC_CONFIG.BATCH_SIZE - 1,
-      toBlock
-    );
-
-    try {
-      const result = await syncBatch(batchFrom, batchTo);
-      totalEvents += result.events;
-      allocatedEvents += result.allocatedEvents;
-      claimedEvents += result.claimedEvents;
-      errors += result.errors;
-
-      // ─── Update checkpoint ────────────────────────────────────
-      await syncStateRepository.setLastBlock(
-        SYNC_KEYS.VESTING_LAST_BLOCK,
-        batchTo
-      );
-
-      logger.info(
-        {
-          batchFrom,
-          batchTo,
-          events: result.events,
-          allocatedEvents: result.allocatedEvents,
-          claimedEvents: result.claimedEvents,
-          errors: result.errors,
-        },
-        "Vesting sync: batch completed"
-      );
-    } catch (error: any) {
-      logger.error(
-        {
-          batchFrom,
-          batchTo,
-          error: error.message,
-        },
-        "Vesting sync: batch failed"
-      );
-
-      // If batch fails, stop and retry on next run
-      // The checkpoint is still at the last successful batch
-      throw new VestingSyncError(
-        `Batch ${batchFrom}-${batchTo} failed: ${error.message}`
-      );
-    }
-
-    batchFrom = batchTo + 1;
-
-    // Small delay between batches to avoid RPC rate limiting
-    if (batchFrom <= toBlock) {
-      await sleep(100);
-    }
-  }
-
-  const duration = Date.now() - startTime;
-
-  logger.info(
-    {
-      fromBlock,
-      toBlock,
-      totalEvents,
-      allocatedEvents,
-      claimedEvents,
-      errors,
-      duration,
-    },
-    "Vesting sync: completed"
-  );
-
-  return {
-    fromBlock,
-    toBlock,
-    totalEvents,
-    allocatedEvents,
-    claimedEvents,
-    errors,
-    duration,
-  };
+type VestingEventWithTimestamp = VestingEvent & {
+  blockTimestamp: Date | null;
 };
 
-// ─── Batch Processing ───────────────────────────────────────────────────────
-
-type BatchResult = {
-  events: number;
-  allocatedEvents: number;
-  claimedEvents: number;
-  errors: number;
-};
-
-const syncBatch = async (
+const fetchVestingRange = async (
   fromBlock: number,
   toBlock: number
-): Promise<BatchResult> => {
-  let allocatedEvents = 0;
-  let claimedEvents = 0;
-  let errors = 0;
-
-  // Fetch both event types in parallel
+): Promise<VestingEventWithTimestamp[]> => {
+  // Fetch both event types in parallel, then merge deterministically.
   const [allocations, claims] = await Promise.all([
-    retry(
-      () => getPastAllocations(fromBlock, toBlock),
-      SYNC_CONFIG.MAX_RETRIES,
-      SYNC_CONFIG.RETRY_DELAY_MS
-    ),
-    retry(
-      () => getPastClaims(fromBlock, toBlock),
-      SYNC_CONFIG.MAX_RETRIES,
-      SYNC_CONFIG.RETRY_DELAY_MS
-    ),
+    getPastAllocations(fromBlock, toBlock),
+    getPastClaims(fromBlock, toBlock),
   ]);
 
-  // Merge and sort by block number, then log index for deterministic ordering
-  const allEvents: VestingEvent[] = [
-    ...allocations.map((e) => mapAllocatedEvent(e)),
-    ...claims.map((e) => mapClaimedEvent(e)),
+  const events: VestingEvent[] = [
+    ...allocations.map(mapAllocatedEvent),
+    ...claims.map(mapClaimedEvent),
   ].sort((a, b) =>
     a.blockNumber !== b.blockNumber
       ? a.blockNumber - b.blockNumber
       : a.logIndex - b.logIndex
   );
 
-  // Enrich events with block timestamps
-  const enrichedEvents = await enrichEventsWithTimestamps(allEvents);
+  if (events.length === 0) return [];
 
-  for (const event of enrichedEvents) {
-    try {
-      await vestingService.processEvent(event);
+  const timestamps = await resolveBlockTimestamps(
+    events.map((event) => event.blockNumber)
+  );
 
-      if (event.type === "ALLOCATED") {
-        allocatedEvents++;
-      } else {
-        claimedEvents++;
-      }
-    } catch (error: any) {
-      errors++;
-      logger.error(
-        {
-          txHash: event.txHash,
-          blockNumber: event.blockNumber,
-          type: event.type,
-          error: error.message,
-        },
-        "Vesting sync: event processing failed"
-      );
-      // Continue with next event — don't break the batch
-    }
-  }
-
-  return {
-    events: enrichedEvents.length,
-    allocatedEvents,
-    claimedEvents,
-    errors,
-  };
+  return events.map((event) => ({
+    ...event,
+    blockTimestamp: timestamps.get(event.blockNumber) ?? null,
+  }));
 };
 
-// ─── Event Mapping ──────────────────────────────────────────────────────────
+// ─── Event Mapping ─────────────────────────────────────────────────────────
 
 const mapAllocatedEvent = (event: AllocatedEvent): VestingEvent => ({
   type: "ALLOCATED",
@@ -287,49 +104,91 @@ const mapClaimedEvent = (event: ClaimedEvent): VestingEvent => ({
   logIndex: event.logIndex,
 });
 
-// ─── Block Timestamp Enrichment ─────────────────────────────────────────────
+// ─── Event Processing ──────────────────────────────────────────────────────
 
-type EnrichedVestingEvent = VestingEvent & { blockTimestamp: Date };
+type VestingCounters = {
+  allocated: number;
+  claimed: number;
+};
 
-/**
- * Enrich events with block timestamps.
- * Groups by block number to minimize RPC calls (shared timestamp).
- */
-const enrichEventsWithTimestamps = async (
-  events: VestingEvent[]
-): Promise<EnrichedVestingEvent[]> => {
-  if (events.length === 0) return [];
+const processVestingEvents = async (
+  events: VestingEventWithTimestamp[],
+  counters: VestingCounters
+): Promise<BatchOutcome> => {
+  let processed = 0;
+  let skipped = 0;
+  let errors = 0;
+  const errorDetails: string[] = [];
 
-  // Group by block number
-  const blockNumbers = [...new Set(events.map((e) => e.blockNumber))];
-
-  // Fetch block timestamps (with retry)
-  const timestampMap = new Map<number, Date>();
-
-  for (const blockNum of blockNumbers) {
+  for (const event of events) {
     try {
-      const block = await retry(
-        () => provider.getBlock(blockNum),
-        SYNC_CONFIG.MAX_RETRIES,
-        SYNC_CONFIG.RETRY_DELAY_MS
-      );
+      const result = await vestingService.processEvent({
+        ...event,
+        blockTimestamp: event.blockTimestamp ?? undefined,
+      });
 
-      if (block) {
-        timestampMap.set(blockNum, new Date(block.timestamp * 1000));
+      if (result.processed) {
+        processed++;
+
+        if (event.type === "ALLOCATED") counters.allocated++;
+        else counters.claimed++;
+      } else {
+        skipped++;
       }
     } catch (error: any) {
-      logger.warn(
-        { blockNumber: blockNum, error: error.message },
-        "Vesting sync: failed to fetch block timestamp, using epoch"
+      errors++;
+      errorDetails.push(`${event.txHash}: ${error?.message ?? "unknown error"}`);
+
+      logger.error(
+        {
+          txHash: event.txHash,
+          blockNumber: event.blockNumber,
+          type: event.type,
+          error: error?.message,
+        },
+        "Vesting sync: event processing failed"
       );
-      timestampMap.set(blockNum, new Date(0));
     }
   }
 
-  // Enrich events
-  return events.map((event) => ({
-    ...event,
-    blockTimestamp:
-      timestampMap.get(event.blockNumber) || new Date(0),
-  }));
+  return { processed, skipped, errors, errorDetails };
+};
+
+// ─── Public API ────────────────────────────────────────────────────────────
+
+/**
+ * Sync Vesting Allocated + Claimed events.
+ * Safe to run repeatedly — persistence is idempotent by txHash.
+ */
+export const syncVestingEvents = async (): Promise<VestingSyncResult> => {
+  const counters: VestingCounters = { allocated: 0, claimed: 0 };
+
+  const outcome = await runEventSync({
+    label: SYNC_CONFIG.label,
+    startBlockEnvName: SYNC_CONFIG.startBlockEnvName,
+    stateKey: SYNC_CONFIG.stateKey,
+    gapKey: SYNC_CONFIG.gapKey,
+    configuredStartBlock: env.sync.vestingStartBlock,
+    batchSize: env.sync.batchSize,
+    safeLookbackBlocks: env.sync.safeLookbackBlocks,
+    maxRetries: env.sync.maxRetries,
+    retryBaseDelayMs: env.sync.retryBaseDelayMs,
+    batchDelayMs: env.sync.batchDelayMs,
+    fetchRange: fetchVestingRange,
+    processEvents: (events) => processVestingEvents(events, counters),
+    store: syncStateRepository,
+  });
+
+  return {
+    fromBlock: outcome.fromBlock,
+    toBlock: outcome.toBlock,
+    totalEvents: outcome.totalEvents,
+    allocatedEvents: counters.allocated,
+    claimedEvents: counters.claimed,
+    errors: outcome.errors,
+    duration: outcome.duration,
+    batches: outcome.batches,
+    gap: outcome.gap,
+    skippedRun: outcome.skippedRun,
+  };
 };

@@ -3,8 +3,19 @@ import { sepolia, mainnet } from 'wagmi/chains';
 export type NetworkType = 'sepolia' | 'mainnet';
 
 // ─── RPC من .env ─────────────────────────────────────────────────────────
-const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || 'https://ethereum-sepolia.core.chainstack.com/66bb0b640016653173f8d17ff2e94dc1';
+// IMPORTANT: never hardcode a provider key here — NEXT_PUBLIC_* values are
+// shipped to the browser. Fall back to the public Sepolia RPC when unset.
+const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || sepolia.rpcUrls.default.http[0];
 const MAINNET_RPC = process.env.NEXT_PUBLIC_MAINNET_RPC || 'https://eth.llamarpc.com';
+
+/**
+ * The only chain Infolast supports.
+ * Used to block writes when a wallet is connected to another network.
+ */
+export const SEPOLIA_CHAIN_ID = sepolia.id; // 11155111
+
+export const isSepoliaChain = (chainId?: number | null): boolean =>
+  chainId === sepolia.id;
 
 export const NETWORKS = {
   sepolia: {

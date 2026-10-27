@@ -7,6 +7,10 @@ import { prisma } from "@core/db/prisma";
  *
  * Key-value persistence for blockchain indexing checkpoints.
  * Each sync source has its own key (e.g., "sale_last_processed_block").
+ *
+ * The checkpoint is the last block that was FULLY persisted for a source.
+ * It is only written after a batch succeeds, which makes the indexer
+ * resumable and prevents events from being lost on failure.
  */
 
 export const syncStateRepository = {
@@ -66,4 +70,12 @@ export const syncStateRepository = {
 export const SYNC_KEYS = {
   SALE_LAST_BLOCK: "sale_last_processed_block",
   VESTING_LAST_BLOCK: "vesting_last_processed_block",
+
+  /**
+   * JSON record of blocks that could not be indexed because the RPC
+   * provider does not serve historical logs on the current plan.
+   * Written by the sync engine; kept until an operator backfills them.
+   */
+  SALE_SYNC_GAP: "sale_sync_gap",
+  VESTING_SYNC_GAP: "vesting_sync_gap",
 } as const;

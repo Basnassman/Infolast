@@ -1,307 +1,151 @@
 import { logger } from "@core/logger/logger";
 import { env } from "@core/config/env";
-import { provider } from "@core/blockchain/provider";
 import {
   getPastPurchases,
-  getLatestBlockNumber,
   PurchasedEvent,
 } from "@core/blockchain/sale.contract";
-import { syncStateRepository, SYNC_KEYS } from "@modules/purchase/repositories/sync-state.repository";
+import {
+  resolveBlockTimestamps,
+  runEventSync,
+  type BatchOutcome,
+} from "@core/blockchain/sync-engine";
+import {
+  syncStateRepository,
+  SYNC_KEYS,
+} from "@modules/purchase/repositories/sync-state.repository";
 import { purchaseService } from "@modules/purchase/services/purchase.service";
 import { mapEventToPurchase } from "@modules/purchase/domain/purchase.domain";
-import { PurchaseSyncError } from "@modules/purchase/errors/purchase-sync.error";
 import { SyncResult } from "@modules/purchase/types/purchase.types";
-import { retry } from "@core/blockchain/retry.service";
 
 /**
  * =====================================================
  * PURCHASE SYNC LAYER (Indexer)
  * =====================================================
  *
- * Implements the Indexer Pattern:
- *   Blockchain → Events → Mapping → Persistence → Checkpoint
+ * Flow:
+ *   Blockchain → Purchased events → Mapping → Persistence → Checkpoint
  *
- * - Reads Purchased events from Sale contract
- * - Maps raw events to purchase data
- * - Persists via service (idempotent via txHash)
- * - Tracks checkpoint in SyncState
- *
- * Designed for fault tolerance:
- *   1. Resumable from last checkpoint
- *   2. RPC failure recovery via retry
- *   3. Idempotent processing (txHash uniqueness)
- *   4. Batch processing for large ranges
+ * Behaviour:
+ *  - Starts from SALE_START_BLOCK (deployment block) or resumes from the
+ *    last checkpoint stored in SyncState. It never restarts at block 1
+ *    once a checkpoint exists.
+ *  - One batch per eth_getLogs request; the shared engine halves the range
+ *    when the provider rejects it as too large.
+ *  - Provider plan limits ("Archive, Debug and Trace ... not available")
+ *    are handled by clamping to the provider's queryable window and
+ *    recording the skipped range instead of retrying forever.
+ *  - The checkpoint only advances after every event in the batch is
+ *    persisted, so a failure can never drop events.
  */
-
-// ─── Configuration ──────────────────────────────────────────────────────────
 
 const SYNC_CONFIG = {
-  /** Max blocks per RPC query batch */
-  BATCH_SIZE: 5_000,
-  /** Max retry attempts for RPC calls */
-  MAX_RETRIES: 3,
-  /** Delay between retries (ms) */
-  RETRY_DELAY_MS: 2_000,
-  /** Chain ID from env */
-  CHAIN_ID: env.chainId,
+  label: "Purchase sync",
+  startBlockEnvName: "SALE_START_BLOCK",
+  stateKey: SYNC_KEYS.SALE_LAST_BLOCK,
+  gapKey: SYNC_KEYS.SALE_SYNC_GAP,
 } as const;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Event Fetching ────────────────────────────────────────────────────────
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-// ─── Core Sync ──────────────────────────────────────────────────────────────
-
-/**
- * Sync purchase events from blockchain.
- *
- * Flow:
- *   1. Read last processed block from SyncState
- *   2. Get current chain block
- *   3. Query events in batches
- *   4. Process each event (idempotent)
- *   5. Update checkpoint after each batch
- *
- * Safe to run multiple times — idempotent by design.
- */
-export const syncPurchaseEvents = async (): Promise<SyncResult> => {
-  const startTime = Date.now();
-  let totalEvents = 0;
-  let newPurchases = 0;
-  let duplicatePurchases = 0;
-  let errors = 0;
-
-  // ─── Step 1: Get checkpoint ──────────────────────────────────
-  const lastProcessedBlock = await syncStateRepository.getLastBlock(
-    SYNC_KEYS.SALE_LAST_BLOCK
-  );
-
-  const currentBlock = await retry(
-    () => getLatestBlockNumber(),
-    SYNC_CONFIG.MAX_RETRIES,
-    SYNC_CONFIG.RETRY_DELAY_MS
-  );
-
-  if (lastProcessedBlock >= currentBlock) {
-    logger.info(
-      { lastProcessedBlock, currentBlock },
-      "Purchase sync: no new blocks to process"
-    );
-    return {
-      fromBlock: lastProcessedBlock,
-      toBlock: currentBlock,
-      totalEvents: 0,
-      newPurchases: 0,
-      duplicatePurchases: 0,
-      errors: 0,
-      duration: Date.now() - startTime,
-    };
-  }
-
-  const fromBlock = lastProcessedBlock + 1;
-  const toBlock = currentBlock;
-
-  logger.info(
-    { fromBlock, toBlock, diff: toBlock - fromBlock },
-    "Purchase sync: starting"
-  );
-
-  // ─── Step 2: Process in batches ──────────────────────────────
-  let batchFrom = fromBlock;
-
-  while (batchFrom <= toBlock) {
-    const batchTo = Math.min(
-      batchFrom + SYNC_CONFIG.BATCH_SIZE - 1,
-      toBlock
-    );
-
-    try {
-      const result = await syncBatch(batchFrom, batchTo);
-      totalEvents += result.events;
-      newPurchases += result.newPurchases;
-      duplicatePurchases += result.duplicates;
-      errors += result.errors;
-
-      // ─── Update checkpoint ────────────────────────────────────
-      await syncStateRepository.setLastBlock(
-        SYNC_KEYS.SALE_LAST_BLOCK,
-        batchTo
-      );
-
-      logger.info(
-        {
-          batchFrom,
-          batchTo,
-          events: result.events,
-          newPurchases: result.newPurchases,
-          duplicates: result.duplicates,
-          errors: result.errors,
-        },
-        "Purchase sync: batch completed"
-      );
-    } catch (error: any) {
-      logger.error(
-        {
-          batchFrom,
-          batchTo,
-          error: error.message,
-        },
-        "Purchase sync: batch failed"
-      );
-
-      // If batch fails, stop and retry on next run
-      // The checkpoint is still at the last successful batch
-      throw new PurchaseSyncError(
-        `Batch ${batchFrom}-${batchTo} failed: ${error.message}`
-      );
-    }
-
-    batchFrom = batchTo + 1;
-
-    // Small delay between batches to avoid RPC rate limiting
-    if (batchFrom <= toBlock) {
-      await sleep(100);
-    }
-  }
-
-  const duration = Date.now() - startTime;
-
-  logger.info(
-    {
-      fromBlock,
-      toBlock,
-      totalEvents,
-      newPurchases,
-      duplicatePurchases,
-      errors,
-      duration,
-    },
-    "Purchase sync: completed"
-  );
-
-  return {
-    fromBlock,
-    toBlock,
-    totalEvents,
-    newPurchases,
-    duplicatePurchases,
-    errors,
-    duration,
-  };
+type PurchasedEventWithTimestamp = PurchasedEvent & {
+  blockTimestamp: Date | null;
 };
 
-// ─── Batch Processing ───────────────────────────────────────────────────────
-
-type BatchResult = {
-  events: number;
-  newPurchases: number;
-  duplicates: number;
-  errors: number;
-};
-
-const syncBatch = async (
+const fetchPurchaseRange = async (
   fromBlock: number,
   toBlock: number
-): Promise<BatchResult> => {
-  let newPurchases = 0;
-  let duplicates = 0;
-  let errors = 0;
+): Promise<PurchasedEventWithTimestamp[]> => {
+  const events = await getPastPurchases(fromBlock, toBlock);
 
-  // Fetch events with retry
-  const events = await retry(
-    () => getPastPurchases(fromBlock, toBlock),
-    SYNC_CONFIG.MAX_RETRIES,
-    SYNC_CONFIG.RETRY_DELAY_MS
+  if (events.length === 0) return [];
+
+  const timestamps = await resolveBlockTimestamps(
+    events.map((event) => event.blockNumber)
   );
 
-  // Enrich events with block timestamps
-  const enrichedEvents = await enrichEventsWithTimestamps(events);
+  return events.map((event) => ({
+    ...event,
+    blockTimestamp: timestamps.get(event.blockNumber) ?? null,
+  }));
+};
 
-  for (const event of enrichedEvents) {
+// ─── Event Processing ──────────────────────────────────────────────────────
+
+const processPurchaseEvents = async (
+  events: PurchasedEventWithTimestamp[]
+): Promise<BatchOutcome> => {
+  let processed = 0;
+  let skipped = 0;
+  let errors = 0;
+  const errorDetails: string[] = [];
+
+  for (const event of events) {
     try {
-      // Map raw event to purchase data
-      const mapped = await mapEventToPurchase(
-        event,
-        SYNC_CONFIG.CHAIN_ID
-      );
+      const mapped = await mapEventToPurchase(event, env.chainId);
 
-      // Update block timestamp from enrichment
-      mapped.blockTimestamp = event.blockTimestamp;
+      // Timestamp is best-effort: unavailable blocks fall back to epoch
+      // (the database column is informational, not used for decisions).
+      mapped.blockTimestamp = event.blockTimestamp ?? new Date(0);
 
-      // Process via service (idempotent)
       const result = await purchaseService.processEvent(mapped);
 
       if (result.created) {
-        newPurchases++;
+        processed++;
       } else {
-        duplicates++;
+        skipped++;
       }
     } catch (error: any) {
       errors++;
+      errorDetails.push(`${event.txHash}: ${error?.message ?? "unknown error"}`);
+
       logger.error(
         {
           txHash: event.txHash,
           blockNumber: event.blockNumber,
-          error: error.message,
+          currency: event.currency,
+          error: error?.message,
         },
         "Purchase sync: event processing failed"
       );
-      // Continue with next event — don't break the batch
     }
   }
 
-  return {
-    events: enrichedEvents.length,
-    newPurchases,
-    duplicates,
-    errors,
-  };
+  return { processed, skipped, errors, errorDetails };
 };
 
-// ─── Block Timestamp Enrichment ─────────────────────────────────────────────
-
-type EnrichedEvent = PurchasedEvent & { blockTimestamp: Date };
+// ─── Public API ────────────────────────────────────────────────────────────
 
 /**
- * Enrich events with block timestamps.
- * Groups by block number to minimize RPC calls (shared timestamp).
+ * Sync Purchase events from the Sale contract.
+ * Safe to run concurrently/repeatedly — persistence is idempotent by txHash.
  */
-const enrichEventsWithTimestamps = async (
-  events: PurchasedEvent[]
-): Promise<EnrichedEvent[]> => {
-  if (events.length === 0) return [];
+export const syncPurchaseEvents = async (): Promise<SyncResult> => {
+  const outcome = await runEventSync({
+    label: SYNC_CONFIG.label,
+    startBlockEnvName: SYNC_CONFIG.startBlockEnvName,
+    stateKey: SYNC_CONFIG.stateKey,
+    gapKey: SYNC_CONFIG.gapKey,
+    configuredStartBlock: env.sync.saleStartBlock,
+    batchSize: env.sync.batchSize,
+    safeLookbackBlocks: env.sync.safeLookbackBlocks,
+    maxRetries: env.sync.maxRetries,
+    retryBaseDelayMs: env.sync.retryBaseDelayMs,
+    batchDelayMs: env.sync.batchDelayMs,
+    fetchRange: fetchPurchaseRange,
+    processEvents: processPurchaseEvents,
+    store: syncStateRepository,
+  });
 
-  // Group by block number
-  const blockNumbers = [...new Set(events.map((e) => e.blockNumber))];
-
-  // Fetch block timestamps (with retry)
-  const timestampMap = new Map<number, Date>();
-
-  for (const blockNum of blockNumbers) {
-    try {
-      const block = await retry(
-        () => provider.getBlock(blockNum),
-        SYNC_CONFIG.MAX_RETRIES,
-        SYNC_CONFIG.RETRY_DELAY_MS
-      );
-
-      if (block) {
-        timestampMap.set(blockNum, new Date(block.timestamp * 1000));
-      }
-    } catch (error: any) {
-      logger.warn(
-        { blockNumber: blockNum, error: error.message },
-        "Failed to fetch block timestamp, using epoch"
-      );
-      timestampMap.set(blockNum, new Date(0));
-    }
-  }
-
-  // Enrich events
-  return events.map((event) => ({
-    ...event,
-    blockTimestamp:
-      timestampMap.get(event.blockNumber) || new Date(0),
-  }));
+  return {
+    fromBlock: outcome.fromBlock,
+    toBlock: outcome.toBlock,
+    totalEvents: outcome.totalEvents,
+    newPurchases: outcome.processed,
+    duplicatePurchases: outcome.skipped,
+    errors: outcome.errors,
+    duration: outcome.duration,
+    batches: outcome.batches,
+    gap: outcome.gap,
+    skippedRun: outcome.skippedRun,
+  };
 };

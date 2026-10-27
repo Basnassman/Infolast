@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/check-api-usage.mjs",
+    "verify:api": "node scripts/check-api-usage.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

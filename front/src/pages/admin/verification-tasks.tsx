@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { motion } from 'framer-motion';
 
-const API_BASE_URL = 'https://infolast.onrender.com/api/v1';
+import { API_BASE_URL } from '@/config/api';
 
 interface VerificationTask {
   id: string;

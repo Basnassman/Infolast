@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit';
-import { sepolia, mainnet } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 import { NETWORKS } from '@/config/contracts';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c594cdcefb23dea78b9f2d92433cc330';
@@ -12,10 +12,11 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c594cdce
 const config = getDefaultConfig({
   appName: 'FOR Token Sale',
   projectId: PROJECT_ID,
-  chains: [sepolia, mainnet],
+  // Infolast is a Sepolia-Testnet-only project: no mainnet transport is
+  // configured, so the wallet cannot silently transact on mainnet.
+  chains: [sepolia],
   transports: {
     [sepolia.id]: http(NETWORKS.sepolia.rpc),
-    [mainnet.id]: http(NETWORKS.mainnet.rpc),
   },
   ssr: true,
 });

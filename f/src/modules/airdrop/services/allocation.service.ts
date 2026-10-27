@@ -103,6 +103,8 @@ export const recalculateAllocations =
 
     let updated = 0;
 
+    let zeroAllocation = 0;
+
     let totalAmountWei =
       0n;
 
@@ -121,11 +123,17 @@ export const recalculateAllocations =
         allocation.allocationWei
       );
 
+      if (BigInt(allocation.allocationWei) === 0n) {
+        zeroAllocation++;
+      }
+
       updated++;
     }
 
     return {
       updated,
+
+      zeroAllocation,
 
       totalAmountWei:
         totalAmountWei.toString(),

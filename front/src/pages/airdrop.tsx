@@ -3,10 +3,9 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { formatUnits, type Hash, zeroHash } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CURRENT_CONTRACTS } from '@/config/contracts';
+import { CURRENT_CONTRACTS, isSepoliaChain } from '@/config/contracts';
 import { AIRDROP_ABI } from '@/config/abis';
-
-const API_BASE_URL = 'https://infolast-l5j6.onrender.com/api/v1';
+import { API_BASE_URL } from '@/config/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +117,7 @@ function PlatformColor(platform: Task['platform']) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AirdropPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { openConnectModal } = useConnectModal();
 
   // ── Eligibility Data ────────────────────────────────────────────────────────
@@ -405,6 +404,12 @@ export default function AirdropPage() {
   const handleClaim = async () => {
     if (!isConnected) {
       openConnectModal?.();
+      return;
+    }
+
+    // Claims must be signed on Sepolia only.
+    if (!isSepoliaChain(chainId)) {
+      setClaimError('Please switch your wallet to the Sepolia Testnet network.');
       return;
     }
 

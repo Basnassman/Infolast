@@ -3,11 +3,9 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits, formatUnits, type Hash } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
 import Calculator, { type Currency } from '@/components/Calculator';
-import { CURRENT_CONTRACTS } from '@/config/contracts';
+import { CURRENT_CONTRACTS, isSepoliaChain } from '@/config/contracts';
 import { SALE_ABI, TOKEN_ABI } from '@/config/abis';
-
-// ─── Backend API Configuration ────────────────────────────────────────────────
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://infolast-l5j6.onrender.com/api/v1';
+import { apiUrl } from '@/config/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatLargeNumber(value: bigint, decimals = 18): string {
@@ -66,7 +64,7 @@ type TransactionStep = 'idle' | 'approving' | 'approved' | 'purchasing' | 'waiti
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BuyPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
 
   const [txHash, setTxHash] = useState<Hash | null>(null);
   const [step, setStep] = useState<TransactionStep>('idle');
@@ -220,7 +218,7 @@ export default function BuyPage() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         
-        const response = await fetch(`${API_BASE_URL}/api/v1/purchase/record`, {
+        const response = await fetch(apiUrl('/purchase/record'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -308,6 +306,12 @@ export default function BuyPage() {
     setSuccess(false);
     setSyncError(null);
     setSelectedCurrencyAddress(data.currency);
+
+    // Step 2 of the purchase flow: the wallet must be on Sepolia.
+    if (!isSepoliaChain(chainId)) {
+      setError('Please switch your wallet to the Sepolia Testnet network.');
+      return;
+    }
 
     try {
       // تحديد ما إذا كانت العملة هي ETH (العنوان الصفري)

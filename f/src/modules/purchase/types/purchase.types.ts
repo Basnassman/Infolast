@@ -54,6 +54,15 @@ export type SyncResult = {
   duplicatePurchases: number;
   errors: number;
   duration: number;
+  /** Number of block batches processed in this run */
+  batches?: number;
+  /**
+   * Block ranges that could not be indexed (provider log window /
+   * missing start block). Null when the whole requested range was synced.
+   */
+  gap?: { fromBlock: number; toBlock: number; reason: string } | null;
+  /** True when a previous run was still in progress and this tick was skipped */
+  skippedRun?: boolean;
 };
 
 /**
