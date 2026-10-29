@@ -381,7 +381,7 @@ export default function BuyPage() {
       setStep('idle');
     }
   },
-  [approve, buyEth, buyToken, allowance, refetchAllowance]
+  [approve, buyEth, buyToken, allowance, refetchAllowance, chainId]
 );
 
   // ── Derived Values ────────────────────────────────────────────────────────────
